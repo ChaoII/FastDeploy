@@ -18,13 +18,13 @@ FastDeploy基于[Triton Inference Server](https://github.com/triton-inference-se
 #### CPU镜像
 CPU镜像仅支持Paddle/ONNX模型在CPU上进行服务化部署，支持的推理后端包括OpenVINO、Paddle Inference和ONNX Runtime
 ``` shell
-docker pull registry.baidubce.com/paddlepaddle/fastdeploy:1.0.4-cpu-only-21.10
+docker pull registry.baidubce.com/paddlepaddle/fastdeploy:1.0.7-cpu-only-21.10
 ```
 
 #### GPU镜像
 GPU镜像支持Paddle/ONNX模型在GPU/CPU上进行服务化部署，支持的推理后端包括OpenVINO、TensorRT、Paddle Inference和ONNX Runtime
 ```
-docker pull registry.baidubce.com/paddlepaddle/fastdeploy:1.0.4-gpu-cuda11.4-trt8.5-21.10
+docker pull registry.baidubce.com/paddlepaddle/fastdeploy:1.0.7-gpu-cuda11.4-trt8.5-21.10
 ```
 
 用户也可根据自身需求，参考如下文档自行编译镜像
@@ -40,12 +40,12 @@ docker pull registry.baidubce.com/paddlepaddle/fastdeploy:1.0.4-gpu-cuda11.4-trt
 
 ### 服务化部署示例
 
-| 任务场景 | 模型  |
-|---|---|
-| Classification | [PaddleClas](../examples/vision/classification/paddleclas/serving/README.md) |
+| 任务场景 | 模型                                                                                |
+|---|-----------------------------------------------------------------------------------|
+| Classification | [PaddleClas](../examples/vision/classification/paddleclas/serving/README.md)      |
 | Detection | [PaddleDetection](../examples/vision/detection/paddledetection/serving/README.md) |
-| Detection | [ultralytics/YOLOv5](../examples/vision/detection/yolov5/serving/README.md) |
-| NLP |	[PaddleNLP/ERNIE-3.0](../examples/text/ernie-3.0/serving/README.md)|
-| NLP |	[PaddleNLP/UIE](../examples/text/uie/serving/README.md)|
-| Speech |	[PaddleSpeech/PP-TTS](../examples/audio/pp-tts/serving/README.md)|
-| OCR |	[PaddleOCR/PP-OCRv3](../examples/vision/ocr/PP-OCRv3/serving/README.md)|
+| Detection | [ultralytics/YOLOv5](../examples/vision/detection/yolov5/serving/README.md)       |
+| NLP | 	[PaddleNLP/ERNIE-3.0](../examples/text/ernie-3.0/serving/README.md)              |
+| NLP | 	[PaddleNLP/UIE](../examples/text/uie/serving/README.md)                          |
+| Speech | 	[PaddleSpeech/PP-TTS](../examples/audio/pp-tts/serving/README.md)                |
+| OCR | 	[PaddleOCR/PP-OCRv3](../examples/vision/ocr/PP-OCR/serving/fastdeploy_serving/README.md)  |

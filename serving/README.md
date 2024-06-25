@@ -22,7 +22,7 @@ FastDeploy builds an end-to-end serving deployment based on [Triton Inference Se
 CPU images only support Paddle/ONNX models for serving deployment on CPUs, and supported inference backends include OpenVINO, Paddle Inference, and ONNX Runtime
 
 ```shell
-docker pull registry.baidubce.com/paddlepaddle/fastdeploy:1.0.4-cpu-only-21.10
+docker pull registry.baidubce.com/paddlepaddle/fastdeploy:1.0.7-cpu-only-21.10
 ```
 
 #### GPU Image
@@ -30,7 +30,7 @@ docker pull registry.baidubce.com/paddlepaddle/fastdeploy:1.0.4-cpu-only-21.10
 GPU images support Paddle/ONNX models for serving deployment on GPU and CPU, and supported inference backends including OpenVINO, TensorRT, Paddle Inference, and ONNX Runtime
 
 ```
-docker pull registry.baidubce.com/paddlepaddle/fastdeploy:1.0.4-gpu-cuda11.4-trt8.5-21.10
+docker pull registry.baidubce.com/paddlepaddle/fastdeploy:1.0.7-gpu-cuda11.4-trt8.5-21.10
 ```
 
 Users can also compile the image by themselves according to their own needs, referring to the following documents:
@@ -56,4 +56,4 @@ Users can also compile the image by themselves according to their own needs, ref
 | NLP |	[PaddleNLP/ERNIE-3.0](../examples/text/ernie-3.0/serving/README.md)|
 | NLP |	[PaddleNLP/UIE](../examples/text/uie/serving/README.md)|
 | Speech |	[PaddleSpeech/PP-TTS](../examples/audio/pp-tts/serving/README.md)|
-| OCR |	[PaddleOCR/PP-OCRv3](../examples/vision/ocr/PP-OCRv3/serving/README.md)|
+| OCR |	[PaddleOCR/PP-OCRv3](../examples/vision/ocr/PP-OCR/serving/fastdeploy_serving/README.md)|
