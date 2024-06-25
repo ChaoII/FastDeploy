@@ -17,8 +17,8 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#include "fastdeploy_capi/runtime/enum_variables.h"
 #include "fastdeploy_capi/core/fd_common.h"
+#include "fastdeploy_capi/runtime/enum_variables.h"
 
 typedef struct FD_C_OneDimArrayUint8 {
   size_t size;
@@ -101,26 +101,28 @@ typedef struct FD_C_OneDimMat {
 extern "C" {
 #endif
 
-#define DECLARE_DESTROY_FD_TYPE_FUNCTION(typename) FASTDEPLOY_CAPI_EXPORT extern void FD_C_Destroy##typename (__fd_take FD_C_##typename *)
-#define DECLARE_AND_IMPLEMENT_FD_TYPE_ONEDIMARRAY(typename) void FD_C_Destroy##typename (__fd_take FD_C_##typename * ptr) \
-  { \
-     delete[] ptr->data; \
+#define DECLARE_DESTROY_FD_TYPE_FUNCTION(typename)                             \
+  FASTDEPLOY_CAPI_EXPORT extern void FD_C_Destroy##                            \
+      typename(__fd_take FD_C_##typename*)
+#define DECLARE_AND_IMPLEMENT_FD_TYPE_ONEDIMARRAY(typename)                    \
+  void FD_C_Destroy##typename(__fd_take FD_C_##typename * ptr) {               \
+    delete[] ptr->data;                                                        \
   }
 
-#define DECLARE_AND_IMPLEMENT_FD_TYPE_TWODIMARRAY(typename, one_dim_type) void FD_C_Destroy##typename (__fd_take FD_C_##typename * ptr) \
-  { \
-     for(int i=0; i< ptr->size; i++) { \
-        FD_C_Destroy##one_dim_type(ptr->data + i); \
-     } \
-     delete[] ptr->data; \
+#define DECLARE_AND_IMPLEMENT_FD_TYPE_TWODIMARRAY(typename, one_dim_type)      \
+  void FD_C_Destroy##typename(__fd_take FD_C_##typename * ptr) {               \
+    for (int i = 0; i < ptr->size; i++) {                                      \
+      FD_C_Destroy##one_dim_type(ptr->data + i);                               \
+    }                                                                          \
+    delete[] ptr->data;                                                        \
   }
 
-#define DECLARE_AND_IMPLEMENT_FD_TYPE_THREEDIMARRAY(typename, two_dim_type) void FD_C_Destroy##typename (__fd_take FD_C_##typename * ptr) \
-  { \
-     for(int i=0; i< ptr->size; i++) { \
-        FD_C_Destroy##two_dim_type(ptr->data + i); \
-     } \
-     delete[] ptr->data; \
+#define DECLARE_AND_IMPLEMENT_FD_TYPE_THREEDIMARRAY(typename, two_dim_type)    \
+  void FD_C_Destroy##typename(__fd_take FD_C_##typename * ptr) {               \
+    for (int i = 0; i < ptr->size; i++) {                                      \
+      FD_C_Destroy##two_dim_type(ptr->data + i);                               \
+    }                                                                          \
+    delete[] ptr->data;                                                        \
   }
 
 // FD_C_OneDimArrayUint8

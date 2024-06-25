@@ -27,7 +27,6 @@ option(PADDLEINFERENCE_API_COMPAT_2_4_x "Whether using Paddle Inference 2.4.x" O
 option(PADDLEINFERENCE_API_COMPAT_2_5_x "Whether using Paddle Inference 2.5.x" OFF)
 option(PADDLEINFERENCE_API_COMPAT_DEV "Whether using Paddle Inference latest dev" OFF)
 option(PADDLEINFERENCE_API_COMPAT_CUDA_SM_80 "Whether using Paddle Inference with CUDA sm_80(A100)" OFF)
-
 set(PADDLEINFERENCE_PROJECT "extern_paddle_inference")
 set(PADDLEINFERENCE_PREFIX_DIR ${THIRD_PARTY_PATH}/paddle_inference)
 set(PADDLEINFERENCE_SOURCE_DIR
@@ -273,7 +272,7 @@ if (NOT WITH_KUNLUNXIN)
   string(REGEX MATCH "2.4|post24|post2.4" PADDLEINFERENCE_USE_2_4_x ${PADDLEINFERENCE_VERSION})
   string(REGEX MATCH "2.5|post25|post2.5" PADDLEINFERENCE_USE_2_5_x ${PADDLEINFERENCE_VERSION})
 endif()
-  
+
 if(PADDLEINFERENCE_USE_DEV)
   set(PADDLEINFERENCE_API_COMPAT_DEV ON CACHE BOOL "" FORCE)
 endif()

@@ -97,7 +97,7 @@ FD_C_Bool FD_C_RecognizerWrapperBatchPredict(
     for (int i = 0; i < texts_out.size(); i++) {
       texts->data[i].size = texts_out[i].length();
       texts->data[i].data = new char[texts_out[i].length() + 1];
-      strncpy(texts->data[i].data, texts_out[i].c_str(), texts_out[i].length());
+      strcpy(texts->data[i].data, texts_out[i].c_str());
     }
 
     rec_scores->size = rec_scores_out.size();

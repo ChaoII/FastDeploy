@@ -51,3 +51,6 @@ log.txt
 serving/build
 serving/build.encrypt
 serving/build.encrypt.auth
+buildscript.txt
+build32
+build_gpu

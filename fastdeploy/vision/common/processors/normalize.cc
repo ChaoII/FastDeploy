@@ -55,7 +55,6 @@ Normalize::Normalize(const std::vector<float>& mean,
 
 bool Normalize::ImplByOpenCV(Mat* mat) {
   cv::Mat* im = mat->GetOpenCVMat();
-
   std::vector<cv::Mat> split_im;
   cv::split(*im, split_im);
   if (swap_rb_) std::swap(split_im[0], split_im[2]);

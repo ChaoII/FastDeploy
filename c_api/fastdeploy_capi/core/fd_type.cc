@@ -14,6 +14,7 @@
 
 #include "fastdeploy_capi/core/fd_type.h"
 
+#include <iostream>
 #include <opencv2/imgcodecs.hpp>
 
 #include "fastdeploy_capi/core/fd_common.h"
@@ -27,7 +28,12 @@ DECLARE_AND_IMPLEMENT_FD_TYPE_ONEDIMARRAY(OneDimArrayUint8)
 // FD_C_OneDimArrayInt8
 DECLARE_AND_IMPLEMENT_FD_TYPE_ONEDIMARRAY(OneDimArrayInt8)
 // FD_C_OneDimArrayInt32
-DECLARE_AND_IMPLEMENT_FD_TYPE_ONEDIMARRAY(OneDimArrayInt32)
+//DECLARE_AND_IMPLEMENT_FD_TYPE_ONEDIMARRAY(OneDimArrayInt32)
+void FD_C_DestroyOneDimArrayInt32(FD_C_OneDimArrayInt32* ptr) {
+  std::cout << "1" << std::endl;
+  delete[] ptr->data;
+  std::cout << "2" << std::endl;
+}
 // FD_C_OneDimArraySize
 DECLARE_AND_IMPLEMENT_FD_TYPE_ONEDIMARRAY(OneDimArraySize)
 // FD_C_OneDimArrayInt64
@@ -38,6 +44,8 @@ DECLARE_AND_IMPLEMENT_FD_TYPE_ONEDIMARRAY(OneDimArrayFloat)
 DECLARE_AND_IMPLEMENT_FD_TYPE_ONEDIMARRAY(Cstr)
 // FD_C_OneDimArrayCstr
 DECLARE_AND_IMPLEMENT_FD_TYPE_TWODIMARRAY(OneDimArrayCstr, Cstr)
+// FD_C_TwoDimArrayCstr
+DECLARE_AND_IMPLEMENT_FD_TYPE_THREEDIMARRAY(TwoDimArrayCstr, OneDimArrayCstr)
 // FD_C_TwoDimArraySize
 DECLARE_AND_IMPLEMENT_FD_TYPE_TWODIMARRAY(TwoDimArraySize, OneDimArraySize)
 // FD_C_TwoDimArrayInt8
@@ -50,7 +58,13 @@ DECLARE_AND_IMPLEMENT_FD_TYPE_THREEDIMARRAY(ThreeDimArrayInt32,
 // FD_C_TwoDimArrayFloat
 DECLARE_AND_IMPLEMENT_FD_TYPE_TWODIMARRAY(TwoDimArrayFloat, OneDimArrayFloat)
 // FD_C_OneDimMat
-DECLARE_AND_IMPLEMENT_FD_TYPE_TWODIMARRAY(OneDimMat, Mat)
+//DECLARE_AND_IMPLEMENT_FD_TYPE_TWODIMARRAY(OneDimMat, Mat)
+void FD_C_DestroyOneDimMat(FD_C_OneDimMat* ptr) {
+  for (int i = 0; i < ptr->size; i++) {
+    FD_C_DestroyMat(ptr->data + i);
+  }
+  delete[] ptr->data;
+}
 
 FD_C_Mat FD_C_Imread(const char* imgpath) {
   cv::Mat image = cv::imread(imgpath);

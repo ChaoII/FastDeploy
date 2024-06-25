@@ -11,6 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#include <memory>
+
 #include "fastdeploy/fastdeploy_model.h"
 
 #include "fastdeploy/utils/utils.h"
@@ -156,7 +158,7 @@ bool FastDeployModel::InitRuntimeWithSpecifiedBackend() {
     }
   }
 
-  runtime_ = std::shared_ptr<Runtime>(new Runtime());
+  runtime_ = std::make_shared<Runtime>();
   if (!runtime_->Init(runtime_option)) {
     return false;
   }
@@ -226,10 +228,13 @@ bool FastDeployModel::CreateCpuBackend() {
 
   for (size_t i = 0; i < valid_cpu_backends.size(); ++i) {
     if (!IsBackendAvailable(valid_cpu_backends[i])) {
+      FDERROR << "-------" << valid_cpu_backends[i] << "-----";
       continue;
     }
+    FDERROR << "-------2-----";
     runtime_option.backend = valid_cpu_backends[i];
-    runtime_ = std::shared_ptr<Runtime>(new Runtime());
+    runtime_ = std::make_shared<Runtime>();
+    FDERROR << "-------3-----";
     if (!runtime_->Init(runtime_option)) {
       return false;
     }
@@ -322,7 +327,7 @@ bool FastDeployModel::CreateSophgoNPUBackend() {
       continue;
     }
     runtime_option.backend = valid_sophgonpu_backends[i];
-    runtime_ = std::unique_ptr<Runtime>(new Runtime());
+    runtime_ = std::make_unique<Runtime>();
     if (!runtime_->Init(runtime_option)) {
       return false;
     }
@@ -346,7 +351,7 @@ bool FastDeployModel::CreateTimVXBackend() {
       continue;
     }
     runtime_option.backend = valid_timvx_backends[i];
-    runtime_ = std::unique_ptr<Runtime>(new Runtime());
+    runtime_ = std::make_unique<Runtime>();
     if (!runtime_->Init(runtime_option)) {
       return false;
     }

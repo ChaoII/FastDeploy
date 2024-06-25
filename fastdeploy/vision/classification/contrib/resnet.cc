@@ -29,6 +29,8 @@ ResNet::ResNet(const std::string& model_file, const std::string& params_file,
   if (model_format == ModelFormat::ONNX) {
     valid_cpu_backends = {Backend::ORT, Backend::OPENVINO};
     valid_gpu_backends = {Backend::ORT, Backend::TRT};
+  } else if (model_format == ModelFormat::MNNFormat) {
+    valid_cpu_backends = {Backend::MNN};
   } else {
     valid_cpu_backends = {Backend::PDINFER};
     valid_gpu_backends = {Backend::PDINFER};
@@ -67,10 +69,8 @@ bool ResNet::Preprocess(Mat* mat, FDTensor* output) {
     int interp = cv::INTER_LINEAR;
     Resize::Run(mat, size[1], size[0], -1, -1, interp);
   }
-
   BGR2RGB::Run(mat);
   Normalize::Run(mat, mean_vals, std_vals);
-
   HWC2CHW::Run(mat);
   Cast::Run(mat, "float");
   mat->ShareWithTensor(output);
@@ -88,7 +88,8 @@ bool ResNet::Postprocess(FDTensor& infer_result, ClassifyResult* result,
   // variable.
 
   int num_classes = infer_result.shape[1];
-  function::Softmax(infer_result, &infer_result);
+//  function::Softmax(infer_result, &infer_result);
+
   const float* infer_result_buffer =
       reinterpret_cast<float*>(infer_result.Data());
   topk = std::min(num_classes, topk);

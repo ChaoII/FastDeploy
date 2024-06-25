@@ -77,17 +77,16 @@ void RuntimeOption::UseTimVX() {
   paddle_lite_option.device = device;
 }
 
-void RuntimeOption::UseKunlunXin(int kunlunxin_id, 
-                                 int l3_workspace_size,
+void RuntimeOption::UseKunlunXin(int kunlunxin_id, int l3_workspace_size,
                                  bool locked, bool autotune,
                                  const std::string& autotune_file,
                                  const std::string& precision,
                                  bool adaptive_seqlen, bool enable_multi_stream,
                                  int64_t gm_default_size) {
-#ifdef WITH_KUNLUNXIN                                
+#ifdef WITH_KUNLUNXIN
   device = Device::KUNLUNXIN;
-  
-#ifdef ENABLE_LITE_BACKEND  
+
+#ifdef ENABLE_LITE_BACKEND
   paddle_lite_option.device = device;
   paddle_lite_option.device_id = kunlunxin_id;
   paddle_lite_option.kunlunxin_l3_workspace_size = l3_workspace_size;
@@ -99,23 +98,26 @@ void RuntimeOption::UseKunlunXin(int kunlunxin_id,
   paddle_lite_option.kunlunxin_enable_multi_stream = enable_multi_stream;
   paddle_lite_option.kunlunxin_gm_default_size = gm_default_size;
 #endif
-#ifdef ENABLE_PADDLE_BACKEND  
+#ifdef ENABLE_PADDLE_BACKEND
   paddle_infer_option.device = device;
   paddle_infer_option.xpu_option.kunlunxin_device_id = kunlunxin_id;
-  paddle_infer_option.xpu_option.kunlunxin_l3_workspace_size = l3_workspace_size;
+  paddle_infer_option.xpu_option.kunlunxin_l3_workspace_size =
+      l3_workspace_size;
   paddle_infer_option.xpu_option.kunlunxin_locked = locked;
   paddle_infer_option.xpu_option.kunlunxin_autotune = autotune;
   paddle_infer_option.xpu_option.kunlunxin_autotune_file = autotune_file;
   paddle_infer_option.xpu_option.kunlunxin_precision = precision;
   paddle_infer_option.xpu_option.kunlunxin_adaptive_seqlen = adaptive_seqlen;
-  paddle_infer_option.xpu_option.kunlunxin_enable_multi_stream = enable_multi_stream;
+  paddle_infer_option.xpu_option.kunlunxin_enable_multi_stream =
+      enable_multi_stream;
   // paddle_infer_option.xpu_option.kunlunxin_gm_default_size = gm_default_size;
   // use paddle_infer_option.xpu_option.SetXpuConfig() for more options.
 #endif
 
 #else
-  FDWARNING << "The FastDeploy didn't compile with KUNLUNXIN, will force to use CPU."
-            << std::endl;
+  FDWARNING
+      << "The FastDeploy didn't compile with KUNLUNXIN, will force to use CPU."
+      << std::endl;
   device = Device::CPU;
 #endif
 }
@@ -159,6 +161,7 @@ void RuntimeOption::SetCpuThreadNum(int thread_num) {
   ort_option.intra_op_num_threads = thread_num;
   openvino_option.cpu_thread_num = thread_num;
   paddle_infer_option.cpu_thread_num = thread_num;
+  mnn_option.cpu_thread_num = thread_num;
 }
 
 void RuntimeOption::SetOrtGraphOptLevel(int level) {
@@ -188,6 +191,14 @@ void RuntimeOption::UseOrtBackend() {
   backend = Backend::ORT;
 #else
   FDASSERT(false, "The FastDeploy didn't compile with OrtBackend.");
+#endif
+}
+
+void RuntimeOption::UseMNNBackend() {
+#ifdef ENABLE_MNN_BACKEND
+  backend = Backend::MNN;
+#else
+  FDASSERT(false, "The FastDeploy didn't compile with MNNBackend.");
 #endif
 }
 
@@ -284,10 +295,9 @@ void RuntimeOption::EnablePaddleToTrt() {
   backend = Backend::PDINFER;
   paddle_infer_option.enable_trt = true;
 #else
-  FDASSERT(false,
-           "While using TrtBackend with EnablePaddleToTrt, require the "
-           "FastDeploy is compiled with Paddle Inference Backend, "
-           "please rebuild your FastDeploy.");
+  FDASSERT(false, "While using TrtBackend with EnablePaddleToTrt, require the "
+                  "FastDeploy is compiled with Paddle Inference Backend, "
+                  "please rebuild your FastDeploy.");
 #endif
 }
 

@@ -8,7 +8,6 @@
 #endif
 
 #include <string>
-
 #include "yaml-cpp/anchor.h"
 #include "yaml-cpp/emitterstyle.h"
 

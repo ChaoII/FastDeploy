@@ -121,6 +121,7 @@ struct FASTDEPLOY_DECL Runtime {
   void CreateSophgoNPUBackend();
   void CreatePorosBackend();
   void CreateTVMBackend();
+  void CreateMNNBackend();
   std::unique_ptr<BaseBackend> backend_;
   std::vector<FDTensor> input_tensors_;
   std::vector<FDTensor> output_tensors_;

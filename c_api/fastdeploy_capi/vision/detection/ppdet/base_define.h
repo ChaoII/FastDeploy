@@ -110,6 +110,6 @@ return successful; \
   } \
   for (int i = 0; i < results_out.size(); i++) { \
     FD_C_DestroyDetectionResultWrapper(results_wrapper_out[i]); \
-  }\
+  } \
   return successful; \
 }

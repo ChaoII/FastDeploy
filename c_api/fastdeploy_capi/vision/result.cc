@@ -42,14 +42,36 @@ FD_C_ClassifyResult* FD_C_CreateClassifyResult() {
   return fd_c_classify_result;
 }
 
-void FD_C_DestroyClassifyResult(
+// helper function
+void ReleaseClassifyResultInner(
     __fd_take FD_C_ClassifyResult* fd_c_classify_result) {
-  if (fd_c_classify_result == nullptr) return;
+  if (fd_c_classify_result == nullptr)
+    return;
   // delete label_ids
   delete[] fd_c_classify_result->label_ids.data;
   // delete scores
   delete[] fd_c_classify_result->scores.data;
+}
+
+void FD_C_DestroyClassifyResult(
+    __fd_take FD_C_ClassifyResult* fd_c_classify_result) {
+  ReleaseClassifyResultInner(fd_c_classify_result);
   delete fd_c_classify_result;
+}
+
+FD_C_OneDimClassifyResult* FD_C_CreateOneDimClassifyResult() {
+  FD_C_OneDimClassifyResult* fd_c_one_dim_classify_result =
+      new FD_C_OneDimClassifyResult();
+  return fd_c_one_dim_classify_result;
+}
+
+void FD_C_DestroyOneDimClassifyResult(
+    __fd_take FD_C_OneDimClassifyResult* fd_c_one_dim_classify_result) {
+  for (int i = 0; i < fd_c_one_dim_classify_result->size; i++) {
+    ReleaseClassifyResultInner(fd_c_one_dim_classify_result->data + i);
+  }
+  delete[] fd_c_one_dim_classify_result->data;
+  delete fd_c_one_dim_classify_result;
 }
 
 void FD_C_ClassifyResultWrapperToCResult(
@@ -128,14 +150,26 @@ FD_C_DetectionResult* FD_C_CreateDetectionResult() {
   return fd_c_detection_result;
 }
 
-void FD_C_DestroyDetectionResult(
+FD_C_OneDimDetectionResult* FD_C_CreateOneDimDetectionResult() {
+  FD_C_OneDimDetectionResult* fd_c_detection_result =
+      new FD_C_OneDimDetectionResult();
+  return fd_c_detection_result;
+}
+
+void ReleaseDetectionResultInner(
     __fd_take FD_C_DetectionResult* fd_c_detection_result) {
-  if (fd_c_detection_result == nullptr) return;
+  if (fd_c_detection_result == nullptr)
+    return;
   // delete boxes
   for (size_t i = 0; i < fd_c_detection_result->boxes.size; i++) {
     delete[] fd_c_detection_result->boxes.data[i].data;
   }
   delete[] fd_c_detection_result->boxes.data;
+  // delete rotated_boxes
+  for (size_t i = 0; i < fd_c_detection_result->rotated_boxes.size; i++) {
+    delete[] fd_c_detection_result->rotated_boxes.data[i].data;
+  }
+  delete[] fd_c_detection_result->rotated_boxes.data;
   // delete scores
   delete[] fd_c_detection_result->scores.data;
   // delete label_ids
@@ -145,7 +179,21 @@ void FD_C_DestroyDetectionResult(
     delete[] fd_c_detection_result->masks.data[i].data.data;
     delete[] fd_c_detection_result->masks.data[i].shape.data;
   }
+}
+
+void FD_C_DestroyDetectionResult(
+    __fd_take FD_C_DetectionResult* fd_c_detection_result) {
+  ReleaseDetectionResultInner(fd_c_detection_result);
   delete fd_c_detection_result;
+}
+
+void FD_C_DestroyOneDimDetectionResult(
+    __fd_take FD_C_OneDimDetectionResult* fd_c_one_dim_detection_result) {
+  for (int i = 0; i < fd_c_one_dim_detection_result->size; i++) {
+    ReleaseDetectionResultInner(fd_c_one_dim_detection_result->data + i);
+  }
+  delete[] fd_c_one_dim_detection_result->data;
+  delete fd_c_one_dim_detection_result;
 }
 
 void FD_C_DetectionResultWrapperToCResult(
@@ -164,6 +212,22 @@ void FD_C_DetectionResultWrapperToCResult(
     for (size_t j = 0; j < boxes_coordinate_dim; j++) {
       fd_c_detection_result->boxes.data[i].data[j] =
           detection_result->boxes[i][j];
+    }
+  }
+  // copy rotated_boxes
+  const int rotated_boxes_coordinate_dim = 8;
+  fd_c_detection_result->rotated_boxes.size =
+      detection_result->rotated_boxes.size();
+  fd_c_detection_result->rotated_boxes.data =
+      new FD_C_OneDimArrayFloat[fd_c_detection_result->rotated_boxes.size];
+  for (size_t i = 0; i < detection_result->rotated_boxes.size(); i++) {
+    fd_c_detection_result->rotated_boxes.data[i].size =
+        rotated_boxes_coordinate_dim;
+    fd_c_detection_result->rotated_boxes.data[i].data =
+        new float[rotated_boxes_coordinate_dim];
+    for (size_t j = 0; j < rotated_boxes_coordinate_dim; j++) {
+      fd_c_detection_result->rotated_boxes.data[i].data[j] =
+          detection_result->rotated_boxes[i][j];
     }
   }
   // copy scores
@@ -223,6 +287,17 @@ FD_C_DetectionResultWrapper* FD_C_CreateDetectionResultWrapperFromCResult(
     for (size_t j = 0; j < boxes_coordinate_dim; j++) {
       detection_result->boxes[i][j] =
           fd_c_detection_result->boxes.data[i].data[j];
+    }
+  }
+
+  // copy rotated_boxes
+  const int rotated_boxes_coordinate_dim = 8;
+  detection_result->rotated_boxes.resize(
+      fd_c_detection_result->rotated_boxes.size);
+  for (size_t i = 0; i < fd_c_detection_result->rotated_boxes.size; i++) {
+    for (size_t j = 0; j < rotated_boxes_coordinate_dim; j++) {
+      detection_result->rotated_boxes[i][j] =
+          fd_c_detection_result->rotated_boxes.data[i].data[j];
     }
   }
   // copy scores
@@ -292,8 +367,9 @@ FD_C_OCRResult* FD_C_CreateOCRResult() {
   return fd_c_ocr_result;
 }
 
-void FD_C_DestroyOCRResult(__fd_take FD_C_OCRResult* fd_c_ocr_result) {
-  if (fd_c_ocr_result == nullptr) return;
+void ReleaseOCRResultInner(__fd_take FD_C_OCRResult* fd_c_ocr_result) {
+  if (fd_c_ocr_result == nullptr)
+    return;
   // delete boxes
   for (size_t i = 0; i < fd_c_ocr_result->boxes.size; i++) {
     delete[] fd_c_ocr_result->boxes.data[i].data;
@@ -310,7 +386,37 @@ void FD_C_DestroyOCRResult(__fd_take FD_C_OCRResult* fd_c_ocr_result) {
   delete[] fd_c_ocr_result->cls_scores.data;
   // delete cls_labels
   delete[] fd_c_ocr_result->cls_labels.data;
+  // delete table_boxes
+  for (size_t i = 0; i < fd_c_ocr_result->table_boxes.size; i++) {
+    delete[] fd_c_ocr_result->table_boxes.data[i].data;
+  }
+  delete[] fd_c_ocr_result->table_boxes.data;
+  // delete table_structure
+  for (size_t i = 0; i < fd_c_ocr_result->table_structure.size; i++) {
+    delete[] fd_c_ocr_result->table_structure.data[i].data;
+  }
+  delete[] fd_c_ocr_result->table_structure.data;
+  // delete table_html
+  delete[] fd_c_ocr_result->table_html.data;
+}
+
+void FD_C_DestroyOCRResult(__fd_take FD_C_OCRResult* fd_c_ocr_result) {
+  ReleaseOCRResultInner(fd_c_ocr_result);
   delete fd_c_ocr_result;
+}
+
+FD_C_OneDimOCRResult* FD_C_CreateOneDimOCRResult() {
+  FD_C_OneDimOCRResult* fd_c_one_dim_ocr_result = new FD_C_OneDimOCRResult();
+  return fd_c_one_dim_ocr_result;
+}
+
+void FD_C_DestroyOneDimOCRResult(
+    __fd_take FD_C_OneDimOCRResult* fd_c_one_dim_ocr_result) {
+  for (int i = 0; i < fd_c_one_dim_ocr_result->size; i++) {
+    ReleaseOCRResultInner(fd_c_one_dim_ocr_result->data + i);
+  }
+  delete[] fd_c_one_dim_ocr_result->data;
+  delete fd_c_one_dim_ocr_result;
 }
 
 void FD_C_OCRResultWrapperToCResult(
@@ -337,8 +443,7 @@ void FD_C_OCRResultWrapperToCResult(
     fd_c_ocr_result->text.data[i].size = ocr_result->text[i].length();
     fd_c_ocr_result->text.data[i].data =
         new char[ocr_result->text[i].length() + 1];
-    strncpy(fd_c_ocr_result->text.data[i].data, ocr_result->text[i].c_str(),
-            ocr_result->text[i].length());
+    strcpy(fd_c_ocr_result->text.data[i].data, ocr_result->text[i].c_str());
   }
 
   // copy rec_scores
@@ -359,6 +464,38 @@ void FD_C_OCRResultWrapperToCResult(
       new int32_t[fd_c_ocr_result->cls_labels.size];
   memcpy(fd_c_ocr_result->cls_labels.data, ocr_result->cls_labels.data(),
          sizeof(int32_t) * fd_c_ocr_result->cls_labels.size);
+
+  // copy table boxes
+  fd_c_ocr_result->table_boxes.size = ocr_result->table_boxes.size();
+  fd_c_ocr_result->table_boxes.data =
+      new FD_C_OneDimArrayInt32[fd_c_ocr_result->table_boxes.size];
+  for (size_t i = 0; i < ocr_result->table_boxes.size(); i++) {
+    fd_c_ocr_result->table_boxes.data[i].size = boxes_coordinate_dim;
+    fd_c_ocr_result->table_boxes.data[i].data = new int[boxes_coordinate_dim];
+    for (size_t j = 0; j < boxes_coordinate_dim; j++) {
+      fd_c_ocr_result->table_boxes.data[i].data[j] =
+          ocr_result->table_boxes[i][j];
+    }
+  }
+
+  // copy table_structure
+  fd_c_ocr_result->table_structure.size = ocr_result->table_structure.size();
+  fd_c_ocr_result->table_structure.data =
+      new FD_C_Cstr[fd_c_ocr_result->table_structure.size];
+  for (size_t i = 0; i < ocr_result->table_structure.size(); i++) {
+    fd_c_ocr_result->table_structure.data[i].size =
+        ocr_result->text[i].length();
+    fd_c_ocr_result->table_structure.data[i].data =
+        new char[ocr_result->table_structure[i].length() + 1];
+    strcpy(fd_c_ocr_result->table_structure.data[i].data,
+           ocr_result->table_structure[i].c_str());
+  }
+
+  // copy table_html
+  fd_c_ocr_result->table_html.data =
+      new char[ocr_result->table_html.length() + 1];
+  strcpy(fd_c_ocr_result->table_html.data, ocr_result->table_html.c_str());
+
   // copy type
   fd_c_ocr_result->type = static_cast<FD_C_ResultType>(ocr_result->type);
   return;
@@ -444,7 +581,8 @@ FD_C_SegmentationResult* FD_C_CreateSegmentationResult() {
 
 void FD_C_DestroySegmentationResult(
     __fd_take FD_C_SegmentationResult* fd_c_segmentation_result) {
-  if (fd_c_segmentation_result == nullptr) return;
+  if (fd_c_segmentation_result == nullptr)
+    return;
   // delete label_map
   delete[] fd_c_segmentation_result->label_map.data;
   // delete score_map

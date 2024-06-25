@@ -19,10 +19,7 @@
 
 #pragma once
 
-#include <algorithm>
-#include <map>
-#include <vector>
-#include "fastdeploy/runtime/enum_variables.h"
+#include "fastdeploy/benchmark/option.h"
 #include "fastdeploy/runtime/backends/lite/option.h"
 #include "fastdeploy/runtime/backends/openvino/option.h"
 #include "fastdeploy/runtime/backends/ort/option.h"
@@ -32,7 +29,11 @@
 #include "fastdeploy/runtime/backends/sophgo/option.h"
 #include "fastdeploy/runtime/backends/tensorrt/option.h"
 #include "fastdeploy/runtime/backends/tvm/option.h"
-#include "fastdeploy/benchmark/option.h"
+#include "fastdeploy/runtime/backends/mnn/option.h"
+#include "fastdeploy/runtime/enum_variables.h"
+#include <algorithm>
+#include <map>
+#include <vector>
 
 namespace fastdeploy {
 
@@ -117,6 +118,16 @@ struct FASTDEPLOY_DECL RuntimeOption {
                     bool enable_multi_stream = false,
                     int64_t gm_default_size = 0);
 
+  /** \Use Graphcore IPU to inference.
+   *
+   * \param[in] device_num the number of IPUs.
+   * \param[in] micro_batch_size the batch size in the graph, only work when graph has no batch shape info.
+   * \param[in] enable_pipelining enable pipelining.
+   * \param[in] batches_per_step the number of batches per run in pipelining.
+   */
+  void UseIpu(int device_num = 1, int micro_batch_size = 1,
+              bool enable_pipelining = false, int batches_per_step = 1);
+
   void SetExternalStream(void* external_stream);
 
   /*
@@ -127,6 +138,8 @@ struct FASTDEPLOY_DECL RuntimeOption {
   void UsePaddleInferBackend() { return UsePaddleBackend(); }
   /// Set ONNX Runtime as inference backend, support CPU/GPU
   void UseOrtBackend();
+  /// set MNN as inference backend, support CPU
+  void UseMNNBackend();
   /// Set SOPHGO Runtime as inference backend, support SOPHGO
   void UseSophgoBackend();
   /// Set TensorRT as inference backend, only support GPU
@@ -137,15 +150,6 @@ struct FASTDEPLOY_DECL RuntimeOption {
   void UseOpenVINOBackend();
   /// Set Paddle Lite as inference backend, only support arm cpu
   void UsePaddleLiteBackend() { return UseLiteBackend(); }
-  /** \Use Graphcore IPU to inference.
-   *
-   * \param[in] device_num the number of IPUs.
-   * \param[in] micro_batch_size the batch size in the graph, only work when graph has no batch shape info.
-   * \param[in] enable_pipelining enable pipelining.
-   * \param[in] batches_per_step the number of batches per run in pipelining.
-   */
-  void UseIpu(int device_num = 1, int micro_batch_size = 1,
-              bool enable_pipelining = false, int batches_per_step = 1);
 
   /// Option to configure ONNX Runtime backend
   OrtBackendOption ort_option;
@@ -163,6 +167,9 @@ struct FASTDEPLOY_DECL RuntimeOption {
   RKNPU2BackendOption rknpu2_option;
   /// Option to configure TVM backend
   TVMBackendOption tvm_option;
+  /// Option to configure MNN backend;
+  MNNBackendOption mnn_option;
+
 
   //  \brief Set the profile mode as 'true'.
   //
@@ -171,8 +178,8 @@ struct FASTDEPLOY_DECL RuntimeOption {
   // \param[in] repeat Repeat times for runtime inference.
   // \param[in] warmup Warmup times for runtime inference.
   //
-  void EnableProfiling(bool inclue_h2d_d2h = false,
-                       int repeat = 100, int warmup = 50) {
+  void EnableProfiling(bool inclue_h2d_d2h = false, int repeat = 100,
+                       int warmup = 50) {
     benchmark_option.enable_profile = true;
     benchmark_option.warmup = warmup;
     benchmark_option.repeats = repeat;
@@ -181,22 +188,16 @@ struct FASTDEPLOY_DECL RuntimeOption {
 
   // \brief Set the profile mode as 'false'.
   //
-  void DisableProfiling() {
-    benchmark_option.enable_profile = false;
-  }
+  void DisableProfiling() { benchmark_option.enable_profile = false; }
 
   // \brief Enable to check if current backend set by
   //        user can be found at valid_xxx_backend.
   //
-  void EnableValidBackendCheck() {
-    enable_valid_backend_check = true;
-  }
+  void EnableValidBackendCheck() { enable_valid_backend_check = true; }
   // \brief Disable to check if current backend set by
   //        user can be found at valid_xxx_backend.
   //
-  void DisableValidBackendCheck() {
-    enable_valid_backend_check = false;
-  }
+  void DisableValidBackendCheck() { enable_valid_backend_check = false; }
 
   // Benchmark option
   benchmark::BenchmarkOption benchmark_option;
@@ -206,13 +207,13 @@ struct FASTDEPLOY_DECL RuntimeOption {
   // If model_from_memory is true, the model_file and params_file is
   // binary stream in memory;
   // Otherwise, the model_file and params_file means the path of file
-  std::string model_file = "";
-  std::string params_file = "";
+  std::string model_file;
+  std::string params_file;
   bool model_from_memory_ = false;
   // format of input model
   ModelFormat model_format = ModelFormat::PADDLE;
 
-  std::string encryption_key_ = "";
+  std::string encryption_key_;
 
   // for cpu inference
   // default will let the backend choose their own default value
@@ -226,7 +227,7 @@ struct FASTDEPLOY_DECL RuntimeOption {
 
   bool enable_pinned_memory = false;
 
-  // *** The belowing api are deprecated, will be removed in v1.2.0
+  // *** The blowing api are deprecated, will be removed in v1.2.0
   // *** Do not use it anymore
   void SetPaddleMKLDNN(bool pd_mkldnn = true);
   void EnablePaddleToTrt();

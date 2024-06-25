@@ -36,6 +36,8 @@ std::ostream& operator<<(std::ostream& out, const Backend& backend) {
     out << "Backend::HORIZONNPU";
   } else if (backend == Backend::TVM) {
     out << "Backend::TVM";
+  } else if (backend == Backend::MNN) {
+    out << "Backend::MNN";
   } else {
     out << "UNKNOWN-Backend";
   }
@@ -44,35 +46,35 @@ std::ostream& operator<<(std::ostream& out, const Backend& backend) {
 
 std::ostream& operator<<(std::ostream& out, const Device& d) {
   switch (d) {
-    case Device::CPU:
-      out << "Device::CPU";
-      break;
-    case Device::GPU:
-      out << "Device::GPU";
-      break;
-    case Device::RKNPU:
-      out << "Device::RKNPU";
-      break;
-    case Device::SUNRISENPU:
-      out << "Device::SUNRISENPU";
-      break;
-    case Device::SOPHGOTPUD:
-      out << "Device::SOPHGOTPUD";
-      break;
-    case Device::TIMVX:
-      out << "Device::TIMVX";
-      break;
-    case Device::KUNLUNXIN:
-      out << "Device::KUNLUNXIN";
-      break;
-    case Device::ASCEND:
-      out << "Device::ASCEND";
-      break;
-    case Device::DIRECTML:
-      out << "Device::DIRECTML";
-      break;
-    default:
-      out << "Device::UNKOWN";
+  case Device::CPU:
+    out << "Device::CPU";
+    break;
+  case Device::GPU:
+    out << "Device::GPU";
+    break;
+  case Device::RKNPU:
+    out << "Device::RKNPU";
+    break;
+  case Device::SUNRISENPU:
+    out << "Device::SUNRISENPU";
+    break;
+  case Device::SOPHGOTPUD:
+    out << "Device::SOPHGOTPUD";
+    break;
+  case Device::TIMVX:
+    out << "Device::TIMVX";
+    break;
+  case Device::KUNLUNXIN:
+    out << "Device::KUNLUNXIN";
+    break;
+  case Device::ASCEND:
+    out << "Device::ASCEND";
+    break;
+  case Device::DIRECTML:
+    out << "Device::DIRECTML";
+    break;
+  default:
+    out << "Device::UNKOWN";
   }
   return out;
 }
@@ -92,6 +94,8 @@ std::ostream& operator<<(std::ostream& out, const ModelFormat& format) {
     out << "ModelFormat::HORIZON";
   } else if (format == ModelFormat::TVMFormat) {
     out << "ModelFormat::TVMFormat";
+  } else if (format == ModelFormat::MNNFormat) {
+    out << "ModelFormat::MNNFormat";
   } else {
     out << "UNKNOWN-ModelFormat";
   }
@@ -129,6 +133,9 @@ std::vector<Backend> GetAvailableBackends() {
 #endif
 #ifdef ENABLE_TVM_BACKEND
   backends.push_back(Backend::TVM);
+#endif
+#ifdef ENABLE_MNN_BACKEND
+  backends.push_back(Backend::MNN);
 #endif
   return backends;
 }
