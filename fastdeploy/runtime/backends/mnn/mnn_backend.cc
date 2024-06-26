@@ -171,8 +171,8 @@ void MNNBackend::BuildOption(const RuntimeOption& option) {
     backend_config.power =
         static_cast<MNN::BackendConfig::PowerMode>(option_.power_mode);
 #else
-    FDERROR << "power mode of MNN_Power_High and MNN_Power_High only be "
-               "supported for aarch64 cpu , switch to MNN_Power_Normal"
+    FDERROR << "power mode of MNN_Power_High and MNN_Power_Low only be "
+               "supported for aarch64 cpu, switch to MNN_Power_Normal"
             << std::endl;
 #endif
   }

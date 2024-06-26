@@ -227,8 +227,7 @@ std::pair<uint16_t, uint16_t> EncodeUTF16SurrogatePair(int codePoint) {
   };
 }
 
-void WriteDoubleQuoteEscapeSequence(ostream_wrapper& out, int codePoint,
-                                    StringEscaping::value stringEscapingStyle) {
+void WriteDoubleQuoteEscapeSequence(ostream_wrapper& out, int codePoint, StringEscaping::value stringEscapingStyle) {
   static const char hexDigits[] = "0123456789abcdef";
 
   out << "\\";
@@ -244,10 +243,8 @@ void WriteDoubleQuoteEscapeSequence(ostream_wrapper& out, int codePoint,
     digits = 8;
   } else {
     auto surrogatePair = EncodeUTF16SurrogatePair(codePoint);
-    WriteDoubleQuoteEscapeSequence(out, surrogatePair.first,
-                                   stringEscapingStyle);
-    WriteDoubleQuoteEscapeSequence(out, surrogatePair.second,
-                                   stringEscapingStyle);
+    WriteDoubleQuoteEscapeSequence(out, surrogatePair.first, stringEscapingStyle);
+    WriteDoubleQuoteEscapeSequence(out, surrogatePair.second, stringEscapingStyle);
     return;
   }
 
@@ -355,8 +352,7 @@ bool WriteDoubleQuotedString(ostream_wrapper& out, const std::string& str,
         } else if (codePoint == 0xFEFF) {  // Byte order marks (ZWNS) should be
                                            // escaped (YAML 1.2, sec. 5.2)
           WriteDoubleQuoteEscapeSequence(out, codePoint, stringEscaping);
-        } else if (stringEscaping == StringEscaping::NonAscii &&
-                   codePoint > 0x7E) {
+        } else if (stringEscaping == StringEscaping::NonAscii && codePoint > 0x7E) {
           WriteDoubleQuoteEscapeSequence(out, codePoint, stringEscaping);
         } else {
           WriteCodePoint(out, codePoint);
@@ -383,8 +379,7 @@ bool WriteLiteralString(ostream_wrapper& out, const std::string& str,
   return true;
 }
 
-bool WriteChar(ostream_wrapper& out, char ch,
-               StringEscaping::value stringEscapingStyle) {
+bool WriteChar(ostream_wrapper& out, char ch, StringEscaping::value stringEscapingStyle) {
   if (('a' <= ch && ch <= 'z') || ('A' <= ch && ch <= 'Z')) {
     out << ch;
   } else if (ch == '\"') {

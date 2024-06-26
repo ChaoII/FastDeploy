@@ -21,7 +21,7 @@ namespace fastdeploy {
 
 std::string Str(const std::vector<Backend>& backends) {
   std::ostringstream oss;
-  if (backends.size() == 0) {
+  if (backends.empty()) {
     oss << "[]";
     return oss.str();
   }
@@ -228,13 +228,10 @@ bool FastDeployModel::CreateCpuBackend() {
 
   for (size_t i = 0; i < valid_cpu_backends.size(); ++i) {
     if (!IsBackendAvailable(valid_cpu_backends[i])) {
-      FDERROR << "-------" << valid_cpu_backends[i] << "-----";
       continue;
     }
-    FDERROR << "-------2-----";
     runtime_option.backend = valid_cpu_backends[i];
     runtime_ = std::make_shared<Runtime>();
-    FDERROR << "-------3-----";
     if (!runtime_->Init(runtime_option)) {
       return false;
     }
@@ -257,7 +254,7 @@ bool FastDeployModel::CreateGpuBackend() {
       continue;
     }
     runtime_option.backend = valid_gpu_backends[i];
-    runtime_ = std::shared_ptr<Runtime>(new Runtime());
+    runtime_ = std::make_shared<Runtime>();
     if (!runtime_->Init(runtime_option)) {
       return false;
     }
@@ -281,7 +278,7 @@ bool FastDeployModel::CreateRKNPUBackend() {
       continue;
     }
     runtime_option.backend = valid_rknpu_backends[i];
-    runtime_ = std::unique_ptr<Runtime>(new Runtime());
+    runtime_ = std::make_unique<Runtime>();
     if (!runtime_->Init(runtime_option)) {
       return false;
     }
@@ -304,7 +301,7 @@ bool FastDeployModel::CreateHorizonBackend() {
       continue;
     }
     runtime_option.backend = valid_horizon_backends[i];
-    runtime_ = std::unique_ptr<Runtime>(new Runtime());
+    runtime_ = std::make_unique<Runtime>();
     if (!runtime_->Init(runtime_option)) {
       return false;
     }
@@ -340,7 +337,7 @@ bool FastDeployModel::CreateSophgoNPUBackend() {
 }
 
 bool FastDeployModel::CreateTimVXBackend() {
-  if (valid_timvx_backends.size() == 0) {
+  if (valid_timvx_backends.empty()) {
     FDERROR << "There's no valid timvx backends for model: " << ModelName()
             << std::endl;
     return false;
@@ -363,7 +360,7 @@ bool FastDeployModel::CreateTimVXBackend() {
 }
 
 bool FastDeployModel::CreateKunlunXinBackend() {
-  if (valid_kunlunxin_backends.size() == 0) {
+  if (valid_kunlunxin_backends.empty()) {
     FDERROR << "There's no valid KunlunXin backends for model: " << ModelName()
             << std::endl;
     return false;
@@ -374,7 +371,7 @@ bool FastDeployModel::CreateKunlunXinBackend() {
       continue;
     }
     runtime_option.backend = valid_kunlunxin_backends[i];
-    runtime_ = std::unique_ptr<Runtime>(new Runtime());
+    runtime_ = std::make_unique<Runtime>();
     if (!runtime_->Init(runtime_option)) {
       return false;
     }
@@ -386,7 +383,7 @@ bool FastDeployModel::CreateKunlunXinBackend() {
 }
 
 bool FastDeployModel::CreateASCENDBackend() {
-  if (valid_ascend_backends.size() == 0) {
+  if (valid_ascend_backends.empty()) {
     FDERROR << "There's no valid ascend backends for model: " << ModelName()
             << std::endl;
     return false;
@@ -397,7 +394,7 @@ bool FastDeployModel::CreateASCENDBackend() {
       continue;
     }
     runtime_option.backend = valid_ascend_backends[i];
-    runtime_ = std::unique_ptr<Runtime>(new Runtime());
+    runtime_ = std::make_unique<Runtime>();
     if (!runtime_->Init(runtime_option)) {
       return false;
     }
@@ -409,7 +406,7 @@ bool FastDeployModel::CreateASCENDBackend() {
 }
 
 bool FastDeployModel::CreateDirectMLBackend() {
-  if (valid_directml_backends.size() == 0) {
+  if (valid_directml_backends.empty()) {
     FDERROR << "There's no valid directml backends for model: " << ModelName()
             << std::endl;
     return false;
@@ -420,7 +417,7 @@ bool FastDeployModel::CreateDirectMLBackend() {
       continue;
     }
     runtime_option.backend = valid_directml_backends[i];
-    runtime_ = std::unique_ptr<Runtime>(new Runtime());
+    runtime_ = std::make_unique<Runtime>();
     if (!runtime_->Init(runtime_option)) {
       return false;
     }
@@ -433,7 +430,7 @@ bool FastDeployModel::CreateDirectMLBackend() {
 }
 
 bool FastDeployModel::CreateIpuBackend() {
-  if (valid_ipu_backends.size() == 0) {
+  if (valid_ipu_backends.empty()) {
     FDERROR << "There's no valid ipu backends for model: " << ModelName()
             << std::endl;
     return false;
@@ -444,7 +441,7 @@ bool FastDeployModel::CreateIpuBackend() {
       continue;
     }
     runtime_option.backend = valid_ipu_backends[i];
-    runtime_ = std::unique_ptr<Runtime>(new Runtime());
+    runtime_ = std::make_unique<Runtime>();
     if (!runtime_->Init(runtime_option)) {
       return false;
     }

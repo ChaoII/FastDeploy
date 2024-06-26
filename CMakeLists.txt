@@ -439,9 +439,9 @@ if (ENABLE_TRT_BACKEND)
         endif ()
     endif ()
 endif ()
+# for gcc 7.5
 set(CMAKE_CXX_STANDARD 11)
 if (ENABLE_VISION)
-
     add_definitions(-DENABLE_VISION)
     add_subdirectory(${PROJECT_SOURCE_DIR}/third_party/yaml-cpp)
     list(APPEND DEPEND_LIBS yaml-cpp)

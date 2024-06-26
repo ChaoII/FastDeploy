@@ -463,11 +463,11 @@ void OrtBackend::InitCustomOperators() {
     custom_operators_.push_back(multiclass_nms);
     if (option_.device == Device::GPU) {
       AdaptivePool2dOp* adaptive_pool2d =
-          new AdaptivePool2dOp{};
+          new AdaptivePool2dOp{"CUDAExecutionProvider"};
       custom_operators_.push_back(adaptive_pool2d);
     } else {
       AdaptivePool2dOp* adaptive_pool2d =
-          new AdaptivePool2dOp{};
+          new AdaptivePool2dOp{"CPUExecutionProvider"};
       custom_operators_.push_back(adaptive_pool2d);
     }
   }

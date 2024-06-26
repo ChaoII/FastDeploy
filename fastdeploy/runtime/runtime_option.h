@@ -21,6 +21,7 @@
 
 #include "fastdeploy/benchmark/option.h"
 #include "fastdeploy/runtime/backends/lite/option.h"
+#include "fastdeploy/runtime/backends/mnn/option.h"
 #include "fastdeploy/runtime/backends/openvino/option.h"
 #include "fastdeploy/runtime/backends/ort/option.h"
 #include "fastdeploy/runtime/backends/paddle/option.h"
@@ -29,7 +30,6 @@
 #include "fastdeploy/runtime/backends/sophgo/option.h"
 #include "fastdeploy/runtime/backends/tensorrt/option.h"
 #include "fastdeploy/runtime/backends/tvm/option.h"
-#include "fastdeploy/runtime/backends/mnn/option.h"
 #include "fastdeploy/runtime/enum_variables.h"
 #include <algorithm>
 #include <map>
@@ -170,7 +170,6 @@ struct FASTDEPLOY_DECL RuntimeOption {
   /// Option to configure MNN backend;
   MNNBackendOption mnn_option;
 
-
   //  \brief Set the profile mode as 'true'.
   //
   // \param[in] inclue_h2d_d2h Whether to
@@ -227,7 +226,7 @@ struct FASTDEPLOY_DECL RuntimeOption {
 
   bool enable_pinned_memory = false;
 
-  // *** The blowing api are deprecated, will be removed in v1.2.0
+  // *** The following api are deprecated, will be removed in v1.2.0
   // *** Do not use it anymore
   void SetPaddleMKLDNN(bool pd_mkldnn = true);
   void EnablePaddleToTrt();

@@ -102,8 +102,8 @@ extern "C" {
 #endif
 
 #define DECLARE_DESTROY_FD_TYPE_FUNCTION(typename)                             \
-  FASTDEPLOY_CAPI_EXPORT extern void FD_C_Destroy##                            \
-      typename(__fd_take FD_C_##typename*)
+  FASTDEPLOY_CAPI_EXPORT extern void FD_C_Destroy##typename                    \
+      (__fd_take FD_C_##typename*)
 #define DECLARE_AND_IMPLEMENT_FD_TYPE_ONEDIMARRAY(typename)                    \
   void FD_C_Destroy##typename(__fd_take FD_C_##typename * ptr) {               \
     delete[] ptr->data;                                                        \

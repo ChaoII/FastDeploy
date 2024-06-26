@@ -56,6 +56,8 @@ struct AdaptivePool2dKernel {
 
 struct AdaptivePool2dOp
     : Ort::CustomOpBase<AdaptivePool2dOp, AdaptivePool2dKernel> {
+  explicit AdaptivePool2dOp(const char* provider) : provider_(provider) {}
+
   void* CreateKernel(OrtApi api, const OrtKernelInfo* info) const {
     return new AdaptivePool2dKernel(api, info, provider_);
   }
