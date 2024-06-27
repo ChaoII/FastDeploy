@@ -89,8 +89,7 @@ bool ResNet::Postprocess(FDTensor& infer_result, ClassifyResult* result,
   // variable.
 
   int num_classes = infer_result.shape[1];
-//  function::Softmax(infer_result, &infer_result);
-
+  function::Softmax(infer_result, &infer_result);
   const float* infer_result_buffer =
       reinterpret_cast<float*>(infer_result.Data());
   topk = std::min(num_classes, topk);
