@@ -24,7 +24,10 @@ YOLOv8::YOLOv8(const std::string& model_file, const std::string& params_file,
   if (model_format == ModelFormat::ONNX) {
     valid_cpu_backends = {Backend::OPENVINO, Backend::ORT};
     valid_gpu_backends = {Backend::ORT, Backend::TRT};
-  } else {
+  } else if(model_format == ModelFormat::MNNFormat){
+    valid_cpu_backends = {Backend::MNN};
+    valid_gpu_backends = {Backend::MNN};
+  }else {
     valid_cpu_backends = {Backend::PDINFER, Backend::ORT, Backend::LITE};
     valid_gpu_backends = {Backend::PDINFER, Backend::ORT, Backend::TRT};
   }

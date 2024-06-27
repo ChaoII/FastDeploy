@@ -98,8 +98,7 @@ FASTDEPLOY_DECL bool ReadBinaryFromFile(const std::string& file,
 
 #define FDINFO                                                                 \
   FDLogger(fastdeploy::FDLogger::enable_info, "[INFO]")                        \
-                           << __REL_FILE__ << "(" << __LINE__                  \
-                           << ")::" << __FUNCTION__ << "\t"
+      << __REL_FILE__ << "(" << __LINE__ << ")::" << __FUNCTION__ << "\t"
 
 #define FDASSERT(condition, format, ...)                                       \
   if (!(condition)) {                                                          \
@@ -207,8 +206,7 @@ FASTDEPLOY_DECL bool ReadBinaryFromFile(const std::string& file,
 FASTDEPLOY_DECL std::vector<int64_t>
 GetStride(const std::vector<int64_t>& dims);
 
-template <typename T>
-std::string Str(const std::vector<T>& shape) {
+template <typename T> std::string Str(const std::vector<T>& shape) {
   std::ostringstream oss;
   oss << "[ " << shape[0];
   for (size_t i = 1; i < shape.size(); ++i) {
@@ -241,5 +239,14 @@ void CalculateStatisInfo(const void* src_ptr, int size, double* mean,
   *mean = *mean / size;
 }
 
+template <typename T> void PrintShapeInfo(std::vector<T> shape) {
+  std::cout << "shape: ";
+  for (auto& s : shape) {
+    std::cout << s << "\t";
+  }
+  std::cout << std::endl;
+}
+
+void PrintFDTensorData(size_t num, void* data);
 
 }  // namespace fastdeploy

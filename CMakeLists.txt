@@ -92,6 +92,7 @@ set(TRT_DIRECTORY "" CACHE PATH "If build tensorrt backend, need to define path 
 set(ORT_DIRECTORY "" CACHE PATH "User can specify the installed onnxruntime directory.")
 set(OPENCV_DIRECTORY "" CACHE PATH "User can specify the installed opencv directory.")
 set(OPENVINO_DIRECTORY "" CACHE PATH "User can specify the installed openvino directory.")
+set(MNN_DIRECTORY "" CACHE PATH "User can specify the installed mnn directory.")
 
 # Whether to build fastdeploy on device Nvidia Jetson
 # Only support CPU Inference & GPU(TensorRT) Inference Now
@@ -543,6 +544,7 @@ if (MSVC)
 endif ()
 
 target_link_libraries(${LIBRARY_NAME} ${DEPEND_LIBS})
+
 
 if (ENABLE_PADDLE_BACKEND)
     set_paddle_encrypt_auth_compatible_policy(${LIBRARY_NAME})

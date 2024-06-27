@@ -449,8 +449,8 @@ TensorInfo OrtBackend::GetOutputInfo(int index) {
 }
 
 std::vector<TensorInfo> OrtBackend::GetOutputInfos() {
-  std::vector<TensorInfo> infos;
-  for (auto i = 0; i < outputs_desc_.size(); i++) {
+  std::vector<TensorInfo> infos(outputs_desc_.size());
+for (auto i = 0; i < outputs_desc_.size(); i++) {
     infos.emplace_back(GetOutputInfo(i));
   }
   return infos;
@@ -458,7 +458,7 @@ std::vector<TensorInfo> OrtBackend::GetOutputInfos() {
 
 void OrtBackend::InitCustomOperators() {
 #ifndef NON_64_PLATFORM
-  if (custom_operators_.size() == 0) {
+  if (custom_operators_.empty()) {
     MultiClassNmsOp* multiclass_nms = new MultiClassNmsOp{};
     custom_operators_.push_back(multiclass_nms);
     if (option_.device == Device::GPU) {

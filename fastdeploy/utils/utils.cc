@@ -71,5 +71,11 @@ std::vector<int64_t> GetStride(const std::vector<int64_t>& dims) {
   }
   return result;
 }
-
+void PrintFDTensorData(size_t num, void* data) {
+  std::cout << "FDTensor top " << num << " data: ";
+  for (int i = 0; i < num; i++) {
+    std::cout << *(static_cast<float*>(data) + i) << " ";
+  }
+  std::cout << std::endl;
+}
 }  // namespace fastdeploy

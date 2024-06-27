@@ -26,29 +26,38 @@ YOLOv5Postprocessor::YOLOv5Postprocessor() {
   max_wh_ = 7680.0;
 }
 
-bool YOLOv5Postprocessor::Run(const std::vector<FDTensor>& tensors, std::vector<DetectionResult>* results,
-                              const std::vector<std::map<std::string, std::array<float, 2>>>& ims_info) {
-  int batch = tensors[0].shape[0];
- 
+bool YOLOv5Postprocessor::Run(
+    const std::vector<FDTensor>& tensors, std::vector<DetectionResult>* results,
+    const std::vector<std::map<std::string, std::array<float, 2>>>& ims_info) {
+  FDTensor target_tensor = tensors[0];
+  for (auto& tensor : tensors) {
+    if (tensor.name == "output") {
+      target_tensor = tensor;
+    }
+  }
+
+  int batch = target_tensor.shape[0];
+
   results->resize(batch);
 
   for (size_t bs = 0; bs < batch; ++bs) {
     (*results)[bs].Clear();
     if (multi_label_) {
-      (*results)[bs].Reserve(tensors[0].shape[1] * (tensors[0].shape[2] - 5));
+      (*results)[bs].Reserve(target_tensor.shape[1] * (target_tensor.shape[2] - 5));
     } else {
-      (*results)[bs].Reserve(tensors[0].shape[1]);
+      (*results)[bs].Reserve(target_tensor.shape[1]);
     }
-    if (tensors[0].dtype != FDDataType::FP32) {
+    if (target_tensor.dtype != FDDataType::FP32) {
       FDERROR << "Only support post process with float32 data." << std::endl;
       return false;
     }
-    const float* data = reinterpret_cast<const float*>(tensors[0].Data()) + bs * tensors[0].shape[1] * tensors[0].shape[2];
-    for (size_t i = 0; i < tensors[0].shape[1]; ++i) {
-      int s = i * tensors[0].shape[2];
+    const float* data = reinterpret_cast<const float*>(target_tensor.Data()) +
+                        bs * target_tensor.shape[1] * target_tensor.shape[2];
+    for (size_t i = 0; i < target_tensor.shape[1]; ++i) {
+      int s = i * target_tensor.shape[2];
       float confidence = data[s + 4];
       if (multi_label_) {
-        for (size_t j = 5; j < tensors[0].shape[2]; ++j) {
+        for (size_t j = 5; j < target_tensor.shape[2]; ++j) {
           confidence = data[s + 4];
           const float* class_score = data + s + j;
           confidence *= (*class_score);
@@ -69,7 +78,7 @@ bool YOLOv5Postprocessor::Run(const std::vector<FDTensor>& tensors, std::vector<
         }
       } else {
         const float* max_class_score =
-            std::max_element(data + s + 5, data + s + tensors[0].shape[2]);
+            std::max_element(data + s + 5, data + s + target_tensor.shape[2]);
         confidence *= (*max_class_score);
         // filter boxes by conf_threshold
         if (confidence <= conf_threshold_) {
@@ -87,7 +96,7 @@ bool YOLOv5Postprocessor::Run(const std::vector<FDTensor>& tensors, std::vector<
       }
     }
 
-    if ((*results)[bs].boxes.size() == 0) {
+    if ((*results)[bs].boxes.empty()) {
       continue;
     }
 
@@ -97,7 +106,7 @@ bool YOLOv5Postprocessor::Run(const std::vector<FDTensor>& tensors, std::vector<
     auto iter_out = ims_info[bs].find("output_shape");
     auto iter_ipt = ims_info[bs].find("input_shape");
     FDASSERT(iter_out != ims_info[bs].end() && iter_ipt != ims_info[bs].end(),
-            "Cannot find input_shape or output_shape from im_info.");
+             "Cannot find input_shape or output_shape from im_info.");
     float out_h = iter_out->second[0];
     float out_w = iter_out->second[1];
     float ipt_h = iter_ipt->second[0];
@@ -108,14 +117,22 @@ bool YOLOv5Postprocessor::Run(const std::vector<FDTensor>& tensors, std::vector<
     for (size_t i = 0; i < (*results)[bs].boxes.size(); ++i) {
       int32_t label_id = ((*results)[bs].label_ids)[i];
       // clip box
-      (*results)[bs].boxes[i][0] = (*results)[bs].boxes[i][0] - max_wh_ * label_id;
-      (*results)[bs].boxes[i][1] = (*results)[bs].boxes[i][1] - max_wh_ * label_id;
-      (*results)[bs].boxes[i][2] = (*results)[bs].boxes[i][2] - max_wh_ * label_id;
-      (*results)[bs].boxes[i][3] = (*results)[bs].boxes[i][3] - max_wh_ * label_id;
-      (*results)[bs].boxes[i][0] = std::max(((*results)[bs].boxes[i][0] - pad_w) / scale, 0.0f);
-      (*results)[bs].boxes[i][1] = std::max(((*results)[bs].boxes[i][1] - pad_h) / scale, 0.0f);
-      (*results)[bs].boxes[i][2] = std::max(((*results)[bs].boxes[i][2] - pad_w) / scale, 0.0f);
-      (*results)[bs].boxes[i][3] = std::max(((*results)[bs].boxes[i][3] - pad_h) / scale, 0.0f);
+      (*results)[bs].boxes[i][0] =
+          (*results)[bs].boxes[i][0] - max_wh_ * label_id;
+      (*results)[bs].boxes[i][1] =
+          (*results)[bs].boxes[i][1] - max_wh_ * label_id;
+      (*results)[bs].boxes[i][2] =
+          (*results)[bs].boxes[i][2] - max_wh_ * label_id;
+      (*results)[bs].boxes[i][3] =
+          (*results)[bs].boxes[i][3] - max_wh_ * label_id;
+      (*results)[bs].boxes[i][0] =
+          std::max(((*results)[bs].boxes[i][0] - pad_w) / scale, 0.0f);
+      (*results)[bs].boxes[i][1] =
+          std::max(((*results)[bs].boxes[i][1] - pad_h) / scale, 0.0f);
+      (*results)[bs].boxes[i][2] =
+          std::max(((*results)[bs].boxes[i][2] - pad_w) / scale, 0.0f);
+      (*results)[bs].boxes[i][3] =
+          std::max(((*results)[bs].boxes[i][3] - pad_h) / scale, 0.0f);
       (*results)[bs].boxes[i][0] = std::min((*results)[bs].boxes[i][0], ipt_w);
       (*results)[bs].boxes[i][1] = std::min((*results)[bs].boxes[i][1], ipt_h);
       (*results)[bs].boxes[i][2] = std::min((*results)[bs].boxes[i][2], ipt_w);

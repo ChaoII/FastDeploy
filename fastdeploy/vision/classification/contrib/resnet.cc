@@ -31,6 +31,7 @@ ResNet::ResNet(const std::string& model_file, const std::string& params_file,
     valid_gpu_backends = {Backend::ORT, Backend::TRT};
   } else if (model_format == ModelFormat::MNNFormat) {
     valid_cpu_backends = {Backend::MNN};
+    valid_gpu_backends = {Backend::MNN};
   } else {
     valid_cpu_backends = {Backend::PDINFER};
     valid_gpu_backends = {Backend::PDINFER};

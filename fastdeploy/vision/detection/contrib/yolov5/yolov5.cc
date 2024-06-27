@@ -26,6 +26,9 @@ YOLOv5::YOLOv5(const std::string& model_file, const std::string& params_file,
     valid_gpu_backends = {Backend::ORT, Backend::TRT};
   } else if (model_format == ModelFormat::SOPHGO) {
     valid_sophgonpu_backends = {Backend::SOPHGOTPU};
+  } else if (model_format == ModelFormat::MNNFormat) {
+    valid_cpu_backends = {Backend::MNN};
+    valid_gpu_backends = {Backend::MNN};
   } else {
     valid_cpu_backends = {Backend::PDINFER, Backend::ORT, Backend::LITE};
     valid_gpu_backends = {Backend::PDINFER, Backend::ORT, Backend::TRT};
@@ -48,7 +51,8 @@ bool YOLOv5::Initialize() {
   return true;
 }
 
-bool YOLOv5::Predict(cv::Mat* im, DetectionResult* result, float conf_threshold, float nms_threshold) {
+bool YOLOv5::Predict(cv::Mat* im, DetectionResult* result, float conf_threshold,
+                     float nms_threshold) {
   postprocessor_.SetConfThreshold(conf_threshold);
   postprocessor_.SetNMSThreshold(nms_threshold);
   if (!Predict(*im, result)) {
@@ -66,7 +70,8 @@ bool YOLOv5::Predict(const cv::Mat& im, DetectionResult* result) {
   return true;
 }
 
-bool YOLOv5::BatchPredict(const std::vector<cv::Mat>& images, std::vector<DetectionResult>* results) {
+bool YOLOv5::BatchPredict(const std::vector<cv::Mat>& images,
+                          std::vector<DetectionResult>* results) {
   std::vector<std::map<std::string, std::array<float, 2>>> ims_info;
   std::vector<FDMat> fd_images = WrapMat(images);
 
@@ -82,7 +87,8 @@ bool YOLOv5::BatchPredict(const std::vector<cv::Mat>& images, std::vector<Detect
   }
 
   if (!postprocessor_.Run(reused_output_tensors_, results, ims_info)) {
-    FDERROR << "Failed to postprocess the inference results by runtime." << std::endl;
+    FDERROR << "Failed to postprocess the inference results by runtime."
+            << std::endl;
     return false;
   }
 

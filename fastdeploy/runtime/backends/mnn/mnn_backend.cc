@@ -1,4 +1,4 @@
-// Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserved.
+// Copyright (c) 2024 PaddlePaddle Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,8 +11,19 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 #include "fastdeploy/runtime/backends/mnn/mnn_backend.h"
 #include <MNN/Tensor.hpp>
+#ifdef WITH_GPU
+#define MNN_USER_SET_DEVICE
+#include <MNN/MNNSharedContext.h>
+#define SET_MNN_GPU_ID(x)                                                      \
+  MNNDeviceContext cuda_context;                                               \
+  cuda_context.deviceId = x;                                                   \
+  backend_config.sharedContext = &cuda_context;
+#else
+#define SET_MNN_GPU_ID(x) void(x)
+#endif
 namespace fastdeploy {
 
 MNNBackend::~MNNBackend() = default;
@@ -20,7 +31,7 @@ MNNBackend::~MNNBackend() = default;
 bool MNNBackend::Init(const RuntimeOption& runtime_option) {
 
   if (runtime_option.model_from_memory_) {
-    FDERROR << "OpenVINOBackend doesn't support load model from memory, please "
+    FDERROR << "MNNBackend doesn't support load model from memory, please "
                "load model from disk."
             << std::endl;
     return false;
@@ -59,9 +70,7 @@ bool MNNBackend::Init(const RuntimeOption& runtime_option) {
     info.shape = input.second->shape();
     info.dtype = MNNTensorTypeToFDDataType(input.second->getType());
     inputs_desc_.emplace_back(info);
-    net_->resizeTensor(input.second, input.second->shape());
   }
-  net_->resizeSession(session_);
   for (auto& output : mnn_outputs) {
     TensorInfo info;
     info.name = output.first;
@@ -102,6 +111,7 @@ bool MNNBackend::Infer(std::vector<FDTensor>& inputs,
   }
   for (auto& input : inputs) {
     auto tensor = net_->getSessionInput(session_, input.name.c_str());
+    net_->resizeTensor(tensor, ConvertShape<int64_t, int>(input.shape));
     auto mnn_tensor = new MNN::Tensor(tensor, MNN::Tensor::CAFFE);
     if (input.dtype == FDDataType::FP32) {
       memcpy(mnn_tensor->host<float>(), input.Data(), input.Nbytes());
@@ -123,6 +133,7 @@ bool MNNBackend::Infer(std::vector<FDTensor>& inputs,
     tensor->copyFromHostTensor(mnn_tensor);
     MNN::Tensor::destroy(mnn_tensor);
   }
+  net_->resizeSession(session_);
   net_->runSession(session_);
   for (size_t i = 0; i < outputs_desc_.size(); ++i) {
     auto tensor =
@@ -131,13 +142,10 @@ bool MNNBackend::Infer(std::vector<FDTensor>& inputs,
         MNNTensorTypeToFDDataType(tensor->getType())) {
       outputs_desc_[i].dtype = MNNTensorTypeToFDDataType(tensor->getType());
     }
-    std::vector<int64_t> temp_shape(tensor->shape().size());
-    for (size_t s = 0; s < temp_shape.size(); s++) {
-      temp_shape[s] = tensor->shape()[s];
-    }
+
     outputs->resize(outputs_desc_.size());
-    (*outputs)[i].Resize(temp_shape, outputs_desc_[i].dtype,
-                         outputs_desc_[i].name);
+    (*outputs)[i].Resize(ConvertShape<int, int64_t>(tensor->shape()),
+                         outputs_desc_[i].dtype, outputs_desc_[i].name);
     // nchw data format
     auto mnn_tensor = new MNN::Tensor(tensor, MNN::Tensor::CAFFE);
     tensor->copyToHostTensor(mnn_tensor);
@@ -161,7 +169,22 @@ void MNNBackend::BuildOption(const RuntimeOption& option) {
       config.numThread = option_.cpu_thread_num;
     }
   } else if (option.device == Device::GPU) {
+#if defined(__x86_64__) || defined(_M_X64)
+    if (option_.forward_type != mnn::MNNForwardType::MNN_FORWARD_CUDA) {
+      FDWARNING << "MNNBackend only support MNN_FORWARD_CUDA Format type, "
+                   "switch to MNN_FORWARD_CUDA"
+                << std::endl;
+    }
+    config.type =
+        static_cast<MNNForwardType>(mnn::MNNForwardType::MNN_FORWARD_CUDA);
+#elif defined(__aarch64__)
     config.type = static_cast<MNNForwardType>(option_.forward_type);
+#else
+    FDASSERT(false, "MNNBackend GPU only support aarch64 and x64 platform");
+#endif
+    if (option.device >= 0) {
+      SET_MNN_GPU_ID(option.device_id);
+    }
     config.mode = option_.gpu_mode;
     backend_config.precision =
         static_cast<MNN::BackendConfig::PrecisionMode>(option_.precision);
