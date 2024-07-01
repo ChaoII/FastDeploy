@@ -186,6 +186,7 @@ FASTDEPLOY_CAPI_EXPORT extern __fd_give FD_C_DetectionResultWrapper*
 FD_C_CreateDetectionResultWrapper();
 
 
+
 /** \brief Destroy a FD_C_DetectionResultWrapper object
  *
  * \param[in] fd_c_detection_result_wrapper pointer to FD_C_DetectionResultWrapper object
@@ -202,6 +203,14 @@ FASTDEPLOY_CAPI_EXPORT extern void FD_C_DestroyDetectionResultWrapper(
 FASTDEPLOY_CAPI_EXPORT extern __fd_give FD_C_DetectionResult*
 FD_C_CreateDetectionResult();
 
+
+/** \brief Create a new FD_C_OneDimDetectionResult object
+ *
+ * \return Return a pointer to FD_C_OneDimDetectionResult object
+ */
+FASTDEPLOY_CAPI_EXPORT extern __fd_give FD_C_OneDimDetectionResult*
+FD_C_CreateOneDimDetectionResult();
+
 /** \brief Destroy a FD_C_DetectionResult object
  *
  * \param[in] fd_c_detection_result pointer to FD_C_DetectionResult object
@@ -209,6 +218,14 @@ FD_C_CreateDetectionResult();
 
 FASTDEPLOY_CAPI_EXPORT extern void FD_C_DestroyDetectionResult(
     __fd_take FD_C_DetectionResult* fd_c_detection_result);
+
+/** \brief Destroy a FD_C_OneDimDetectionResult object
+ *
+ * \param[in] fd_c_one_dim_detection_result pointer to FD_C_OneDimDetectionResult object
+ */
+
+FASTDEPLOY_CAPI_EXPORT extern void FD_C_DestroyOneDimDetectionResult(
+    __fd_take FD_C_OneDimDetectionResult* fd_c_one_dim_detection_result);
 
 /** \brief Get a FD_C_DetectionResult object from FD_C_DetectionResultWrapper object
  *
@@ -345,6 +362,23 @@ FASTDEPLOY_CAPI_EXPORT extern void FD_C_DestroySegmentationResultWrapper(
  */
 FASTDEPLOY_CAPI_EXPORT extern __fd_give FD_C_SegmentationResult*
 FD_C_CreateSegmentationResult();
+
+
+/** \brief Create a new FD_C_OneDimSegmentationResult object
+ *
+ * \return Return a pointer to FD_C_OneDimSegmentationResult object
+ */
+FASTDEPLOY_CAPI_EXPORT extern __fd_give FD_C_OneDimSegmentationResult*
+FD_C_CreateOneDimSegmentationResult();
+
+/** \brief Destroy a FD_C_SegmentationResult object
+ *
+ * \param[in] fd_c_one_dim_segmentation_result pointer to FD_C_SegmentationResult object
+ */
+
+FASTDEPLOY_CAPI_EXPORT extern void FD_C_DestroyOneDimSegmentationResult(
+    __fd_take FD_C_OneDimSegmentationResult* fd_c_one_dim_segmentation_result);
+
 
 /** \brief Destroy a FD_C_SegmentationResult object
  *

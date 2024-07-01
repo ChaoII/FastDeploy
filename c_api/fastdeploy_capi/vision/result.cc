@@ -42,27 +42,42 @@ FD_C_ClassifyResult* FD_C_CreateClassifyResult() {
   return fd_c_classify_result;
 }
 
-void FD_C_DestroyClassifyResult(
+void FD_C_DestroyClassifyResultInner(
     __fd_take FD_C_ClassifyResult* fd_c_classify_result) {
-  if (fd_c_classify_result == nullptr) return;
+  if (fd_c_classify_result == nullptr)
+    return;
   // delete label_ids
   delete[] fd_c_classify_result->label_ids.data;
   // delete scores
   delete[] fd_c_classify_result->scores.data;
+}
+
+void FD_C_DestroyClassifyResult(
+    __fd_take FD_C_ClassifyResult* fd_c_classify_result) {
+  if (fd_c_classify_result == nullptr)
+    return;
+  FD_C_DestroyClassifyResultInner(fd_c_classify_result);
   delete fd_c_classify_result;
 }
 
 FD_C_OneDimClassifyResult* FD_C_CreateOneDimClassifyResult() {
-  FD_C_OneDimClassifyResult* fd_c_one_dim_classify_result = new FD_C_OneDimClassifyResult();
+  FD_C_OneDimClassifyResult* fd_c_one_dim_classify_result =
+      new FD_C_OneDimClassifyResult();
   return fd_c_one_dim_classify_result;
+}
+
+void FD_C_DestroyOneDimClassifyResultInner(
+    __fd_take FD_C_OneDimClassifyResult* fd_c_one_dim_classify_result) {
+  for (int i = 0; i < fd_c_one_dim_classify_result->size; i++) {
+    FD_C_DestroyClassifyResultInner(fd_c_one_dim_classify_result->data + i);
+  }
+  delete[] fd_c_one_dim_classify_result->data;
 }
 
 void FD_C_DestroyOneDimClassifyResult(
     __fd_take FD_C_OneDimClassifyResult* fd_c_one_dim_classify_result) {
-  for (int i = 0; i < fd_c_one_dim_classify_result->size; i++) {
-    FD_C_DestroyClassifyResult(fd_c_one_dim_classify_result->data + i);
-  }
-  delete[] fd_c_one_dim_classify_result->data;
+  FD_C_DestroyOneDimClassifyResultInner(fd_c_one_dim_classify_result);
+  delete fd_c_one_dim_classify_result;
 }
 
 void FD_C_ClassifyResultWrapperToCResult(
@@ -85,7 +100,6 @@ void FD_C_ClassifyResultWrapperToCResult(
          sizeof(float) * fd_c_classify_result_data->scores.size);
   fd_c_classify_result_data->type =
       static_cast<FD_C_ResultType>(classify_result->type);
-  return;
 }
 
 FD_C_ClassifyResultWrapper* FD_C_CreateClassifyResultWrapperFromCResult(
@@ -117,11 +131,9 @@ void FD_C_ClassifyResultStr(FD_C_ClassifyResult* fd_c_classify_result,
   std::string information = classify_result->Str();
   std::strcpy(str_buffer, information.c_str());
   FD_C_DestroyClassifyResultWrapper(fd_c_classify_result_wrapper);
-  return;
 }
 
 // Detection Results
-
 FD_C_DetectionResultWrapper* FD_C_CreateDetectionResultWrapper() {
   FD_C_DetectionResultWrapper* fd_c_detection_result_wrapper =
       new FD_C_DetectionResultWrapper();
@@ -141,9 +153,16 @@ FD_C_DetectionResult* FD_C_CreateDetectionResult() {
   return fd_c_detection_result;
 }
 
-void FD_C_DestroyDetectionResult(
+FD_C_OneDimDetectionResult* FD_C_CreateOneDimDetectionResult() {
+  FD_C_OneDimDetectionResult* fd_c_one_dim_detection_result =
+      new FD_C_OneDimDetectionResult();
+  return fd_c_one_dim_detection_result;
+}
+
+void FD_C_DestroyDetectionResultInner(
     __fd_take FD_C_DetectionResult* fd_c_detection_result) {
-  if (fd_c_detection_result == nullptr) return;
+  if (fd_c_detection_result == nullptr)
+    return;
   // delete boxes
   for (size_t i = 0; i < fd_c_detection_result->boxes.size; i++) {
     delete[] fd_c_detection_result->boxes.data[i].data;
@@ -163,7 +182,29 @@ void FD_C_DestroyDetectionResult(
     delete[] fd_c_detection_result->masks.data[i].data.data;
     delete[] fd_c_detection_result->masks.data[i].shape.data;
   }
-  delete fd_c_detection_result;
+  delete[] fd_c_detection_result->masks.data;
+}
+
+void FD_C_DestroyDetectionResult(
+    __fd_take FD_C_DetectionResult* fd_c_detection_result) {
+  FD_C_DestroyDetectionResultInner(fd_c_detection_result);
+}
+
+void FD_C_DestroyOneDimDetectionResultInner(
+    FD_C_OneDimDetectionResult* fd_c_one_dim_delete_result) {
+  if (fd_c_one_dim_delete_result == nullptr) {
+    return;
+  }
+  for (int i = 0; i < fd_c_one_dim_delete_result->size; i++) {
+    FD_C_DestroyDetectionResultInner(fd_c_one_dim_delete_result->data + i);
+  }
+  delete[] fd_c_one_dim_delete_result->data;
+}
+
+void FD_C_DestroyOneDimDetectionResult(
+    FD_C_OneDimDetectionResult* fd_c_one_dim_delete_result) {
+  FD_C_DestroyOneDimDetectionResultInner(fd_c_one_dim_delete_result);
+  delete fd_c_one_dim_delete_result;
 }
 
 void FD_C_DetectionResultWrapperToCResult(
@@ -240,7 +281,6 @@ void FD_C_DetectionResultWrapperToCResult(
   fd_c_detection_result->contain_masks = detection_result->contain_masks;
   fd_c_detection_result->type =
       static_cast<FD_C_ResultType>(detection_result->type);
-  return;
 }
 
 FD_C_DetectionResultWrapper* FD_C_CreateDetectionResultWrapperFromCResult(
@@ -261,7 +301,8 @@ FD_C_DetectionResultWrapper* FD_C_CreateDetectionResultWrapperFromCResult(
   }
   // copy rotated_boxes
   const int rotated_boxes_coordinate_dim = 8;
-  detection_result->rotated_boxes.resize(fd_c_detection_result->rotated_boxes.size);
+  detection_result->rotated_boxes.resize(
+      fd_c_detection_result->rotated_boxes.size);
   for (size_t i = 0; i < fd_c_detection_result->rotated_boxes.size; i++) {
     for (size_t j = 0; j < rotated_boxes_coordinate_dim; j++) {
       detection_result->rotated_boxes[i][j] =
@@ -312,7 +353,6 @@ void FD_C_DetectionResultStr(FD_C_DetectionResult* fd_c_detection_result,
   std::string information = detection_result->Str();
   std::strcpy(str_buffer, information.c_str());
   FD_C_DestroyDetectionResultWrapper(fd_c_detection_result_wrapper);
-  return;
 }
 
 // OCR Results
@@ -335,8 +375,9 @@ FD_C_OCRResult* FD_C_CreateOCRResult() {
   return fd_c_ocr_result;
 }
 
-void FD_C_DestroyOCRResult(__fd_take FD_C_OCRResult* fd_c_ocr_result) {
-  if (fd_c_ocr_result == nullptr) return;
+void FD_C_DestroyOCRResultInner(__fd_take FD_C_OCRResult* fd_c_ocr_result) {
+  if (fd_c_ocr_result == nullptr)
+    return;
   // delete boxes
   for (size_t i = 0; i < fd_c_ocr_result->boxes.size; i++) {
     delete[] fd_c_ocr_result->boxes.data[i].data;
@@ -365,21 +406,35 @@ void FD_C_DestroyOCRResult(__fd_take FD_C_OCRResult* fd_c_ocr_result) {
   delete[] fd_c_ocr_result->table_structure.data;
   // delete table_html
   delete[] fd_c_ocr_result->table_html.data;
+}
+
+void FD_C_DestroyOCRResult(__fd_take FD_C_OCRResult* fd_c_ocr_result) {
+  if (fd_c_ocr_result == nullptr)
+    return;
+  FD_C_DestroyOCRResultInner(fd_c_ocr_result);
   delete fd_c_ocr_result;
 }
 
 FD_C_OneDimOCRResult* FD_C_CreateOneDimOCRResult() {
-  FD_C_OneDimOCRResult* fd_c_one_dim_ocr_result =
-      new FD_C_OneDimOCRResult();
+  FD_C_OneDimOCRResult* fd_c_one_dim_ocr_result = new FD_C_OneDimOCRResult();
   return fd_c_one_dim_ocr_result;
+}
+
+void FD_C_DestroyOneDimOCRResultInner(
+    __fd_take FD_C_OneDimOCRResult* fd_c_one_dim_ocr_result) {
+  if (fd_c_one_dim_ocr_result == nullptr) {
+    return;
+  }
+  for (int i = 0; i < fd_c_one_dim_ocr_result->size; i++) {
+    FD_C_DestroyOCRResultInner(fd_c_one_dim_ocr_result->data + i);
+  }
+  delete[] fd_c_one_dim_ocr_result->data;
 }
 
 void FD_C_DestroyOneDimOCRResult(
     __fd_take FD_C_OneDimOCRResult* fd_c_one_dim_ocr_result) {
-  for (int i = 0; i < fd_c_one_dim_ocr_result->size; i++) {
-    FD_C_DestroyOCRResult(fd_c_one_dim_ocr_result->data + i);
-  }
-  delete[] fd_c_one_dim_ocr_result->data;
+  FD_C_DestroyOneDimOCRResultInner(fd_c_one_dim_ocr_result);
+  delete fd_c_one_dim_ocr_result;
 }
 
 void FD_C_OCRResultWrapperToCResult(
@@ -461,7 +516,6 @@ void FD_C_OCRResultWrapperToCResult(
 
   // copy type
   fd_c_ocr_result->type = static_cast<FD_C_ResultType>(ocr_result->type);
-  return;
 }
 
 FD_C_OCRResultWrapper* FD_C_CreateOCRResultWrapperFromCResult(
@@ -542,16 +596,49 @@ FD_C_SegmentationResult* FD_C_CreateSegmentationResult() {
   return fd_c_segmentation_result;
 }
 
-void FD_C_DestroySegmentationResult(
+FD_C_OneDimSegmentationResult* FD_C_CreateOneDimSegmentationResult() {
+  FD_C_OneDimSegmentationResult* fd_c_one_dim_segmentation_result =
+      new FD_C_OneDimSegmentationResult();
+  return fd_c_one_dim_segmentation_result;
+}
+
+void FD_C_DestroySegmentationResultInner(
     __fd_take FD_C_SegmentationResult* fd_c_segmentation_result) {
-  if (fd_c_segmentation_result == nullptr) return;
+  if (fd_c_segmentation_result == nullptr)
+    return;
   // delete label_map
   delete[] fd_c_segmentation_result->label_map.data;
   // delete score_map
   delete[] fd_c_segmentation_result->score_map.data;
   // delete shape
   delete[] fd_c_segmentation_result->shape.data;
+}
+
+void FD_C_DestroySegmentationResult(
+    __fd_take FD_C_SegmentationResult* fd_c_segmentation_result) {
+  if (fd_c_segmentation_result == nullptr)
+    return;
+  FD_C_DestroySegmentationResultInner(fd_c_segmentation_result);
   delete fd_c_segmentation_result;
+}
+
+void FD_C_DestroyOneDimSegmentationResultInner(
+    FD_C_OneDimSegmentationResult* fd_c_one_dim_segmentation_result) {
+  if (fd_c_one_dim_segmentation_result == nullptr)
+    return;
+  for (int i = 0; i < fd_c_one_dim_segmentation_result->size; i++) {
+    FD_C_DestroySegmentationResultInner(fd_c_one_dim_segmentation_result->data +
+                                        i);
+  }
+  delete[] fd_c_one_dim_segmentation_result->data;
+}
+
+void FD_C_DestroyOneDimSegmentationResult(
+    FD_C_OneDimSegmentationResult* fd_c_one_dim_segmentation_result) {
+  if (fd_c_one_dim_segmentation_result == nullptr)
+    return;
+  FD_C_DestroyOneDimSegmentationResultInner(fd_c_one_dim_segmentation_result);
+  delete fd_c_one_dim_segmentation_result;
 }
 
 void FD_C_SegmentationResultWrapperToCResult(
@@ -589,7 +676,6 @@ void FD_C_SegmentationResultWrapperToCResult(
   // copy type
   fd_c_segmentation_result->type =
       static_cast<FD_C_ResultType>(segmentation_result->type);
-  return;
 }
 
 FD_C_SegmentationResultWrapper* FD_C_CreateSegmentationResultWrapperFromCResult(
