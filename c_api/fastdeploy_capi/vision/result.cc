@@ -188,6 +188,7 @@ void FD_C_DestroyDetectionResultInner(
 void FD_C_DestroyDetectionResult(
     __fd_take FD_C_DetectionResult* fd_c_detection_result) {
   FD_C_DestroyDetectionResultInner(fd_c_detection_result);
+  delete fd_c_detection_result;
 }
 
 void FD_C_DestroyOneDimDetectionResultInner(
