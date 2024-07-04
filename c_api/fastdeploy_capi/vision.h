@@ -26,4 +26,5 @@
 #endif
 
 #include "fastdeploy_capi/core/fd_type.h"
+#include "fastdeploy_capi/core/utils.h"
 #include "fastdeploy_capi/runtime/runtime_option.h"

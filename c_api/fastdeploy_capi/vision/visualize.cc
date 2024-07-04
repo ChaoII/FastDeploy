@@ -71,10 +71,11 @@ FD_C_Mat FD_C_VisClassification(FD_C_Mat im,
   return new cv::Mat(result);
 }
 
-FD_C_Mat FD_C_VisClassificationWithLabel(
-    FD_C_Mat im, FD_C_ClassifyResult* fd_c_classify_result,
-    FD_C_OneDimArrayCstr* labels, int top_k, float score_threshold,
-    float font_size) {
+FD_C_Mat
+FD_C_VisClassificationWithLabel(FD_C_Mat im,
+                                FD_C_ClassifyResult* fd_c_classify_result,
+                                FD_C_OneDimArrayCstr* labels, int top_k,
+                                float score_threshold, float font_size) {
   std::vector<std::string> labels_in;
   for (int i = 0; i < labels->size; i++) {
     labels_in.emplace_back(labels->data[i].data);
