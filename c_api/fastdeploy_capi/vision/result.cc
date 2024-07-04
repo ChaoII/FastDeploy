@@ -290,9 +290,9 @@ FD_C_DetectionResultWrapper* FD_C_CreateDetectionResultWrapperFromCResult(
       FD_C_CreateDetectionResultWrapper();
   auto& detection_result = CHECK_AND_CONVERT_FD_TYPE(
       DetectionResultWrapper, fd_c_detection_result_wrapper);
+
   // copy boxes
   const int boxes_coordinate_dim = 4;
-  std::cout << fd_c_detection_result->boxes.size << std::endl;
   detection_result->boxes.resize(fd_c_detection_result->boxes.size);
   for (size_t i = 0; i < fd_c_detection_result->boxes.size; i++) {
     for (size_t j = 0; j < boxes_coordinate_dim; j++) {
@@ -300,6 +300,7 @@ FD_C_DetectionResultWrapper* FD_C_CreateDetectionResultWrapperFromCResult(
           fd_c_detection_result->boxes.data[i].data[j];
     }
   }
+
   // copy rotated_boxes
   const int rotated_boxes_coordinate_dim = 8;
   detection_result->rotated_boxes.resize(
@@ -310,6 +311,7 @@ FD_C_DetectionResultWrapper* FD_C_CreateDetectionResultWrapperFromCResult(
           fd_c_detection_result->rotated_boxes.data[i].data[j];
     }
   }
+
   // copy scores
   detection_result->scores.resize(fd_c_detection_result->scores.size);
   memcpy(detection_result->scores.data(), fd_c_detection_result->scores.data,
@@ -340,6 +342,7 @@ FD_C_DetectionResultWrapper* FD_C_CreateDetectionResultWrapperFromCResult(
         static_cast<fastdeploy::vision::ResultType>(
             fd_c_detection_result->masks.data[i].type);
   }
+
   detection_result->contain_masks = fd_c_detection_result->contain_masks;
   detection_result->type =
       static_cast<fastdeploy::vision::ResultType>(fd_c_detection_result->type);
