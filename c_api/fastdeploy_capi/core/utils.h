@@ -18,6 +18,14 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/** \brief Set behaviour of logging while using FastDeploy
+ *
+ * \param[in] enable_info Enable info for FastDeploy logger
+ * \param[in] enable_warning Enable warning for FastDeploy logger
+ *
+ * \return
+ */
 FASTDEPLOY_CAPI_EXPORT void FD_C_SetLogger(FD_C_Bool enable_info,
                                            FD_C_Bool enable_warning);
 
