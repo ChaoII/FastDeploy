@@ -123,14 +123,14 @@ bool PaddleParser::LoadParamsFromMemoryBuffer(
       read_size += sizeof(version);
     }
     {
-      // read lod_level, we don't use it
+      // read legacy_lod_level, we don't use it
       // this has to be zero, otherwise not support
-      uint64_t lod_level;
-      params_buffer.copy(reinterpret_cast<char*>(&lod_level), sizeof(lod_level),
+      uint64_t legacy_lod_level;
+      params_buffer.copy(reinterpret_cast<char*>(&legacy_lod_level), sizeof(legacy_lod_level),
                          read_size);
-      read_size += sizeof(lod_level);
-      if (lod_level != 0) {
-        P2OLogger() << "Only supports weight with lod_level = 0." << std::endl;
+      read_size += sizeof(legacy_lod_level);
+      if (legacy_lod_level != 0) {
+        P2OLogger() << "Only supports weight with legacy_lod_level = 0." << std::endl;
         return false;
       }
     }
@@ -202,14 +202,14 @@ bool PaddleParser::LoadParamsFromMemoryBuffer(const void* params_buffer,
       params_size -= sizeof(version);
     }
     {
-      // read lod_level, we don't use it
+      // read legacy_lod_level, we don't use it
       // this has to be zero, otherwise not support
-      uint64_t lod_level;
-      std::memcpy(&lod_level, read_pointer, sizeof(lod_level));
-      read_pointer += sizeof(lod_level);
-      params_size -= sizeof(lod_level);
-      if (lod_level != 0) {
-        P2OLogger() << "Only supports weight with lod_level = 0." << std::endl;
+      uint64_t legacy_lod_level;
+      std::memcpy(&legacy_lod_level, read_pointer, sizeof(legacy_lod_level));
+      read_pointer += sizeof(legacy_lod_level);
+      params_size -= sizeof(legacy_lod_level);
+      if (legacy_lod_level != 0) {
+        P2OLogger() << "Only supports weight with legacy_lod_level = 0." << std::endl;
         return false;
       }
     }
@@ -280,13 +280,13 @@ bool PaddleParser::LoadParams(const std::string& path) {
       is.read(reinterpret_cast<char*>(&version), sizeof(version));
     }
     {
-      // read lod_level, we don't use it
+      // read legacy_lod_level, we don't use it
       // this has to be zero, otherwise not support
-      uint64_t lod_level;
-      read_size += sizeof(lod_level);
-      is.read(reinterpret_cast<char*>(&lod_level), sizeof(lod_level));
-      Assert(lod_level == 0,
-             "Paddle2ONNX: Only support weight with lod_level = 0.");
+      uint64_t legacy_lod_level;
+      read_size += sizeof(legacy_lod_level);
+      is.read(reinterpret_cast<char*>(&legacy_lod_level), sizeof(legacy_lod_level));
+      Assert(legacy_lod_level == 0,
+             "Paddle2ONNX: Only support weight with legacy_lod_level = 0.");
     }
     {
       // Another version, we don't use it
@@ -354,7 +354,7 @@ const framework::proto::OpDesc& PaddleParser::GetOpDesc(int32_t block_idx,
 }
 
 void PaddleParser::InitBlock() {
-  //  if (ExistsDumplicateTensorName()) {
+  //  if (ExistsDuplicateTensorName()) {
   //    return false;
   //  }
   GetBlocksVarName2Id();
@@ -453,19 +453,21 @@ void PaddleParser::GetBlocksOps() {
 TensorInfo PaddleParser::GetTensorInfo(
     const std::string& name,
     const paddle2onnx::framework::proto::BlockDesc& block) const {
-  auto block_idx = block.idx();
-  auto iter = _blocks_var_name2id[block_idx].find(name);
-  if (iter == _blocks_var_name2id[block_idx].end()) {
-    if (block_idx == 0) {
-      Assert(false,
-             "Cannot find " + name + " in _blocks_var_name2id(global block).");
-    } else {
-      block_idx = block.parent_idx();
-      iter = _blocks_var_name2id[block_idx].find(name);
-      Assert(iter != _blocks_var_name2id[block_idx].end(),
-             "Cannot find " + name + " in _blocks_var_name2id(parent block).");
+  int32_t block_idx = block.idx();
+  bool is_find = false;
+  auto iter = _blocks_var_name2id[block_idx].begin();
+  do {
+    iter = _blocks_var_name2id[block_idx].find(name);
+    if (iter != _blocks_var_name2id[block_idx].end()) {
+      is_find = true;
+      break;
     }
-  }
+    block_idx--;
+  } while (block_idx >= 0);
+
+  Assert(is_find,
+         "Cannot find " + name + " in _blocks_var_name2id(global block).");
+
   auto var_idx = iter->second;
 
   // Dangerous conversion, lod tensor array is under limited supporting
@@ -483,7 +485,7 @@ TensorInfo PaddleParser::GetTensorInfo(
     return info;
   }
 
-  auto tensor = prog->blocks(block_idx).vars(var_idx).type().lod_tensor();
+  auto tensor = prog->blocks(block_idx).vars(var_idx).type().dense_tensor();
   TensorInfo info;
   info.name = name;
   info.dtype = tensor.tensor().data_type();
@@ -582,9 +584,9 @@ std::vector<TensorInfo> PaddleParser::GetOpAttrVar(
   std::vector<TensorInfo> inputs;
   for (auto i = 0; i < op.attrs_size(); ++i) {
     if (op.attrs(i).name() == name) {
-      Assert(IsAttrVar(op, i), "Required AttrVar: " + name +
-                                   " type is Variable in operator: " +
-                                   op.type());
+      Assert(IsAttrVar(op, i),
+             "Required AttrVar: " + name +
+                 " type is Variable in operator: " + op.type());
       // Case 1: Attribute is a single Var
       if (op.attrs(i).has_var_name()) {
         inputs.push_back(GetTensorInfo(op.attrs(i).var_name(), block));
@@ -630,8 +632,8 @@ void PaddleParser::GetOpAttr(const paddle2onnx::framework::proto::OpDesc& op,
       found = true;
       if (IsAttrVar(op, i)) break;
       Assert(op.attrs(i).has_i() || op.attrs(i).has_l(),
-             "Cannot find int32/int64 data from attr: " + name + " in op:" +
-                 op.type());
+             "Cannot find int32/int64 data from attr: " + name +
+                 " in op:" + op.type());
       if (op.attrs(i).has_i()) {
         *res = (int64_t)(op.attrs(i).i());
       } else {
@@ -728,8 +730,8 @@ void PaddleParser::GetOpAttr(const paddle2onnx::framework::proto::OpDesc& op,
       found = true;
       if (IsAttrVar(op, i)) break;
       Assert(op.attrs(i).floats_size() >= 0,
-             "Cannot find list of float data from attr: " + name + " in op: " +
-                 op.type());
+             "Cannot find list of float data from attr: " + name +
+                 " in op: " + op.type());
       for (auto j = 0; j < op.attrs(i).floats_size(); ++j) {
         res->push_back(static_cast<float>(op.attrs(i).floats(j)));
       }
@@ -749,8 +751,8 @@ void PaddleParser::GetOpAttr(const paddle2onnx::framework::proto::OpDesc& op,
       found = true;
       if (IsAttrVar(op, i)) break;
       Assert(op.attrs(i).float64s_size() >= 0,
-             "Cannot find list of double data from attr: " + name + " in op: " +
-                 op.type());
+             "Cannot find list of double data from attr: " + name +
+                 " in op: " + op.type());
       for (auto j = 0; j < op.attrs(i).float64s_size(); ++j) {
         res->push_back(static_cast<double>(op.attrs(i).float64s(j)));
       }
@@ -759,7 +761,26 @@ void PaddleParser::GetOpAttr(const paddle2onnx::framework::proto::OpDesc& op,
   }
   Assert(found, "Cannot found attribute " + name + " in op: " + op.type());
 }
-
+void PaddleParser::GetOpAttr(const paddle2onnx::framework::proto::OpDesc& op,
+                             const std::string& name,
+                             std::vector<bool>* res) const {
+  bool found = false;
+  res->clear();
+  for (auto i = 0; i < op.attrs_size(); ++i) {
+    if (op.attrs(i).name() == name) {
+      found = true;
+      if (IsAttrVar(op, i)) break;
+      Assert(op.attrs(i).bools_size() >= 0,
+             "Cannot find list of double data from attr: " + name +
+                 " in op: " + op.type());
+      for (auto j = 0; j < op.attrs(i).bools_size(); ++j) {
+        res->push_back(static_cast<double>(op.attrs(i).bools(j)));
+      }
+      break;
+    }
+  }
+  Assert(found, "Cannot found attribute " + name + " in op: " + op.type());
+}
 void PaddleParser::GetGlobalBlockInputOutputInfo() {
   inputs.clear();
   outputs.clear();
@@ -815,7 +836,6 @@ void PaddleParser::GetGlobalBlockInputOutputInfo() {
 }
 
 int32_t PaddleDataTypeSize(int32_t paddle_dtype) {
-  Assert(paddle_dtype != FP16, "Float16 is not supported.");
   if (paddle_dtype == P2ODataType::BOOL) {
     return sizeof(bool);
   } else if (paddle_dtype == P2ODataType::INT8) {
@@ -828,6 +848,8 @@ int32_t PaddleDataTypeSize(int32_t paddle_dtype) {
     return sizeof(int64_t);
   } else if (paddle_dtype == P2ODataType::FP32) {
     return sizeof(float);
+  } else if (paddle_dtype == P2ODataType::FP16) {
+    return sizeof(int16_t);
   } else if (paddle_dtype == P2ODataType::FP64) {
     return sizeof(double);
   } else if (paddle_dtype == P2ODataType::UINT8) {
@@ -859,4 +881,36 @@ bool PaddleParser::ExistsDumplicateTensorName() const {
   }
   return false;
 }
+
+#define DECLARE_GET_OP_SCALARS(scalar_type, target_type)                       \
+  template <>                                                                  \
+  void PaddleParser::GetOpScalarsAttr<target_type>(                            \
+      const paddle2onnx::framework::proto::OpDesc& op,                         \
+      const std::string& name, std::vector<target_type>* res) const {          \
+    bool found = false;                                                        \
+    res->clear();                                                              \
+    for (auto i = 0; i < op.attrs_size(); ++i) {                               \
+      if (op.attrs(i).name() == name) {                                        \
+        found = true;                                                          \
+        if (IsAttrVar(op, i)) break;                                           \
+        Assert(op.attrs(i).scalars_size() >= 0,                                \
+               "Cannot find list of scalars data from attr: " + name +         \
+                   " in op: " + op.type());                                    \
+        for (auto j = 0; j < op.attrs(i).scalars_size(); ++j) {                \
+          Assert(op.attrs(i).scalars(j).has_##scalar_type(),                   \
+                 "Scalar type does not match with " #scalar_type);             \
+          res->push_back(                                                      \
+              static_cast<target_type>(op.attrs(i).scalars(j).scalar_type())); \
+        }                                                                      \
+        break;                                                                 \
+      }                                                                        \
+    }                                                                          \
+    Assert(found, "Cannot found attribute " + name + " in op: " + op.type());  \
+  }
+
+DECLARE_GET_OP_SCALARS(i, int64_t)
+DECLARE_GET_OP_SCALARS(i, int32_t)
+DECLARE_GET_OP_SCALARS(r, float)
+DECLARE_GET_OP_SCALARS(r, double)
+DECLARE_GET_OP_SCALARS(b, bool)
 }  // namespace paddle2onnx

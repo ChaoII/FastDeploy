@@ -1,13 +1,16 @@
+// Copyright (c) ONNX Project Contributors
+
 /*
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #include <iostream>
+
 #include "gtest/gtest.h"
+#include "onnx/defs/parser.h"
 #include "onnx/defs/schema.h"
 #include "onnx/defs/shape_inference.h"
 #include "onnx/onnx_pb.h"
-#include "onnx/defs/parser.h"
 #include "onnx/shape_inference/implementation.h"
 
 using namespace ONNX_NAMESPACE::shape_inference;
@@ -20,7 +23,7 @@ void ScanInferenceFunction(InferenceContext& ctx);
 
 namespace Test {
 
-template<class Type>
+template <class Type>
 void CreateDims(Type& proto, int num_dims) {
   auto mutable_shape = proto.mutable_shape();
   mutable_shape->clear_dim();
@@ -30,9 +33,7 @@ void CreateDims(Type& proto, int num_dims) {
 }
 
 template <class Type>
-void SetDimValues(
-    Type& proto,
-    const std::vector<int>& values) {
+void SetDimValues(Type& proto, const std::vector<int>& values) {
   auto* mutable_shape = proto.mutable_shape();
   EXPECT_TRUE(mutable_shape->dim_size() == values.size());
 
@@ -45,9 +46,7 @@ void SetDimValues(
 }
 
 template <class Type>
-void SetDimParams(
-    Type& proto,
-    const std::vector<const std::string*>& values) {
+void SetDimParams(Type& proto, const std::vector<const std::string*>& values) {
   auto mutable_shape = proto.mutable_shape();
   EXPECT_TRUE(mutable_shape->dim_size() == values.size());
 
@@ -69,8 +68,7 @@ void Dump(const Type& t) {
     auto y = x.has_dim_value();
     auto z = x.has_dim_param();
 
-    std::cout << "Dim " << i << " Value:"
-              << (y ? ONNX_NAMESPACE::to_string(x.dim_value()) : "<unset>")
+    std::cout << "Dim " << i << " Value:" << (y ? ONNX_NAMESPACE::to_string(x.dim_value()) : "<unset>")
               << ", Param:" << (z ? x.dim_param() : "<unset>") << "\n";
   }
 };
@@ -207,7 +205,6 @@ TEST(ShapeInferenceTest, mergeShapeInfo_CombineShapes) {
     EXPECT_TRUE(shape.dim(0).dim_value() == 1 && shape.dim(1).dim_value() == 2);
   }
 
-
   // prefer value over param,
   {
     TypeProto_Tensor source;
@@ -264,8 +261,7 @@ TEST(ShapeInferenceTest, mergeShapeInfo_Mismatches) {
     CreateDims(target, 3);
     SetDimValues(target, {1, -1, 1});
 
-    EXPECT_THROW(
-        mergeInShapeInfo(source, target), ONNX_NAMESPACE::InferenceError);
+    EXPECT_THROW(mergeInShapeInfo(source, target), ONNX_NAMESPACE::InferenceError);
   }
 
   {
@@ -281,7 +277,6 @@ TEST(ShapeInferenceTest, mergeShapeInfo_Mismatches) {
     EXPECT_THROW(mergeInShapeInfo(source, target), ONNX_NAMESPACE::InferenceError);
   }
 
-
   // mismatched dim values
   {
     TypeProto_Tensor source;
@@ -293,8 +288,7 @@ TEST(ShapeInferenceTest, mergeShapeInfo_Mismatches) {
     CreateDims(target, 2);
     SetDimValues(target, {2, 1});
 
-    EXPECT_THROW(
-        mergeInShapeInfo(source, target), ONNX_NAMESPACE::InferenceError);
+    EXPECT_THROW(mergeInShapeInfo(source, target), ONNX_NAMESPACE::InferenceError);
   }
 
   {
@@ -359,10 +353,7 @@ static void doInferencingTest(bool use_scan_opset8) {
 
   // simple tensor with shape info
   TypeProto simple_tensor = simple_tensor_no_shape;
-  simple_tensor.mutable_tensor_type()
-      ->mutable_shape()
-      ->add_dim()
-      ->set_dim_value(2);
+  simple_tensor.mutable_tensor_type()->mutable_shape()->add_dim()->set_dim_value(2);
 
   // setup simple graph that can be used with Scan containing two Identity
   // nodes. one for the loop state variable. one for the scan output.
@@ -418,12 +409,11 @@ static void doInferencingTest(bool use_scan_opset8) {
 
   // loop_state_in and scan_in are the two inputs.
   // order in subgraphInputTypes matches their order as graph inputs.
-  std::vector<const TypeProto*> subgraphInputTypes = {&simple_tensor,
-                                                      &simple_tensor};
+  std::vector<const TypeProto*> subgraphInputTypes = {&simple_tensor, &simple_tensor};
 
   std::vector<const TensorProto*> subgraphInputData = {};
-  auto output =
-      graphInferencer.doInferencing(subgraphInputTypes, subgraphInputData);
+  ShapeInferenceOptions options{false, 0, false};
+  auto output = graphInferencer.doInferencing(subgraphInputTypes, subgraphInputData);
 
   // check the subgraph outputs had their shape inferred when we called
   // doInferencing directly
@@ -496,7 +486,7 @@ static void doInferencingTest(bool use_scan_opset8) {
   valueTypesByName["loop_state_start"] = &loop_state_in_tensor;
   valueTypesByName["scan_op_in"] = &scan_in_tensor;
 
-  InferenceContextImpl ctx(scan, valueTypesByName, {}, {}, {}, & graphInfCtx);
+  InferenceContextImpl ctx(scan, valueTypesByName, {}, {}, options, {}, &graphInfCtx);
   if (use_scan_opset8)
     ScanInferenceFunctionOpset8(ctx);
   else
@@ -527,7 +517,7 @@ void RunReshapeShapeInfTest(const char* modelStr, TensorShapeProto& expectedShap
   ShapeInferenceOptions options{true, 1, true};
   ONNX_NAMESPACE::shape_inference::InferShapes(model, ONNX_NAMESPACE::OpSchemaRegistry::Instance(), options);
 
-  const auto inferredShape = model.graph().output()[0].type().tensor_type().shape();
+  const auto inferredShape = model.graph().output(0).type().tensor_type().shape();
   EXPECT_TRUE(inferredShape.dim_size() == expectedShape.dim_size());
 
   for (int i = 0; i < inferredShape.dim_size(); i++) {
@@ -539,7 +529,6 @@ void RunReshapeShapeInfTest(const char* modelStr, TensorShapeProto& expectedShap
         inferredShape.dim(i).has_dim_value() ? inferredShape.dim(i).dim_value() == expectedShape.dim(i).dim_value()
                                              : inferredShape.dim(i).dim_param() == expectedShape.dim(i).dim_param());
   }
-
 }
 TEST(ShapeInferenceTest, ReshapeTestWithShapeAsSymInput) {
   const char* modelStr = R"ONNX(
@@ -614,6 +603,21 @@ agraph (float[1, 196608] m) => (float[?, ?, ?] z)
   expectedShape.mutable_dim()->Add()->set_dim_value(256);
 
   RunReshapeShapeInfTest(modelStr, expectedShape);
+}
+
+TEST(ShapeInferenceTest, CheckShapesAndTypesTest) {
+#ifndef ONNX_NO_EXCEPTIONS
+  // Tensor element types mis-match should cause an exception.
+  TypeProto tensor_infer;
+  auto* tensor_infer_type = tensor_infer.mutable_tensor_type();
+  tensor_infer_type->set_elem_type(TensorProto_DataType_FLOAT);
+
+  TypeProto tensor_exist;
+  auto* tensor_exist_type = tensor_exist.mutable_tensor_type();
+  tensor_exist_type->set_elem_type(TensorProto_DataType_UINT8);
+
+  EXPECT_THROW(checkShapesAndTypes(tensor_infer, tensor_exist), ONNX_NAMESPACE::InferenceError);
+#endif
 }
 
 } // namespace Test

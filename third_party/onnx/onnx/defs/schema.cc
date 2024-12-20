@@ -3,8 +3,11 @@
  */
 
 #include "onnx/defs/schema.h"
+
 #include <stdexcept>
 #include <unordered_set>
+#include <utility>
+
 #include "onnx/checker.h"
 #include "onnx/defs/operator_sets.h"
 #include "onnx/defs/operator_sets_preview.h"
@@ -15,7 +18,6 @@
 #endif
 
 #include "onnx/common/assertions.h"
-#include "onnx/common/stl_backports.h"
 #include "onnx/defs/parser.h"
 
 namespace ONNX_NAMESPACE {
@@ -24,10 +26,35 @@ namespace ONNX_NAMESPACE {
 // Other positive integer means the ONNX schemas for the specified version have been loaded
 int OpSchemaRegistry::loaded_schema_version = -1;
 
+constexpr int OpSchema::kUninitializedSinceVersion;
+
 // By default if opset_version_to_load=0, it registers all opset schema for all opset versions
 // Otherwise, it only registers the latest schema according to opset_version_to_load
-void RegisterSchema(OpSchema schema, int opset_version_to_load) {
-  OpSchemaRegistry::OpSchemaRegisterOnce ONNX_UNUSED registration(schema, opset_version_to_load);
+void RegisterSchema(
+    const OpSchema& schema,
+    int opset_version_to_load,
+    bool fail_duplicate_schema,
+    bool fail_with_exception) {
+  RegisterSchema(OpSchema(schema), opset_version_to_load, fail_duplicate_schema, fail_with_exception);
+}
+void RegisterSchema(
+    OpSchema&& schema,
+    int opset_version_to_load,
+    bool fail_duplicate_schema,
+    bool fail_with_exception) {
+  if (fail_with_exception) {
+    OpSchemaRegistry::OpSchemaRegisterOnce::OpSchemaRegisterImpl(
+        std::move(schema), opset_version_to_load, fail_duplicate_schema);
+  } else {
+    OpSchemaRegistry::OpSchemaRegisterOnce::OpSchemaRegisterNoExcept(
+        std::move(schema), opset_version_to_load, fail_duplicate_schema);
+  }
+}
+
+// The (name, version, domain) must match the target exactly
+// Otherwise will raise an SchemaError
+void DeregisterSchema(const std::string& op_type, int version, const std::string& domain) {
+  OpSchemaRegistry::OpSchemaDeregister(op_type, version, domain);
 }
 
 #ifndef NDEBUG
@@ -80,9 +107,34 @@ OpSchemaRegistry* OpSchemaRegistry::Instance() {
 
 void OpSchema::CheckInputOutputType(struct InferenceContext& ctx) const {
   std::unordered_map<std::string, std::string> type_constraints;
+  if (inputs_.empty() && ctx.getNumInputs() > 0) {
+    fail_check(
+        "Node (",
+        domain(),
+        "::",
+        Name(),
+        ":",
+        since_version(),
+        ") takes zero inputs, but got ",
+        ctx.getNumInputs(),
+        " in graph");
+  }
+  if (outputs_.empty() && ctx.getNumOutputs() > 0) {
+    fail_check(
+        "Node (",
+        domain(),
+        "::",
+        Name(),
+        ":",
+        since_version(),
+        ") yields zero outputs, but got ",
+        ctx.getNumOutputs(),
+        " in graph");
+  }
   // check all input types
-  for (size_t in_idx = 0; in_idx < ctx.getNumInputs() && in_idx < inputs_.size(); ++in_idx) {
-    const auto& param = inputs_[in_idx];
+  for (size_t in_idx = 0; in_idx < ctx.getNumInputs(); ++in_idx) {
+    // If the last input is Variadic by definition, checker still needs to check the rest of actual input's type
+    const auto& param = (in_idx < inputs_.size()) ? inputs_[in_idx] : inputs_.back();
     const auto& type_str = param.GetTypeStr();
     const auto& param_type = ctx.getInputType(in_idx);
     const auto& all_types = param.GetTypes();
@@ -108,8 +160,9 @@ void OpSchema::CheckInputOutputType(struct InferenceContext& ctx) const {
     }
   } // for inputs
   // check all output types
-  for (size_t out_idx = 0; out_idx < ctx.getNumOutputs() && out_idx < outputs_.size(); ++out_idx) {
-    const auto& param = outputs_[out_idx];
+  for (size_t out_idx = 0; out_idx < ctx.getNumOutputs(); ++out_idx) {
+    // If the last output is Variadic by definition, checker still needs to check the rest of actual output's type
+    const auto& param = (out_idx < outputs_.size()) ? outputs_[out_idx] : outputs_.back();
     const auto& type_str = param.GetTypeStr();
     const auto& param_type = ctx.getOutputType(out_idx);
     const auto& all_types = param.GetTypes();
@@ -186,7 +239,10 @@ void OpSchema::Verify(const NodeProto& node) const {
   // Check the values of inputs / outputs
   for (int in_idx = 0; in_idx < node.input_size(); ++in_idx) {
     if (in_idx >= static_cast<int>(inputs_.size())) {
-      if (inputs_.empty() || Variadic != inputs_.back().GetOption()) {
+      if (!inputs_.empty() && Variadic == inputs_.back().GetOption()) {
+        // The last input formal parameter should be variadic.
+        break;
+      } else {
         fail_check(
             "Node (",
             node.name(),
@@ -197,22 +253,17 @@ void OpSchema::Verify(const NodeProto& node) const {
             ") in op definition.");
       }
     }
-    if ((in_idx >= static_cast<int>(inputs_.size()) && Variadic == inputs_.back().GetOption()) ||
-      Variadic == inputs_[in_idx].GetOption()) {
-      do {
-        if (node.input(in_idx).empty()) {
-          fail_check(
-              "Node (", node.name(), ")'s input ", in_idx, " is marked Variadic but has an empty string in the graph");
-        }
-      } while (++in_idx < node.input_size());
-    } else if (node.input(in_idx).empty() && (Single == inputs_[in_idx].GetOption())) {
+    if (node.input(in_idx).empty() && (Single == inputs_[in_idx].GetOption())) {
       fail_check("Node (", node.name(), ")'s input ", in_idx, " is marked single but has an empty string in the graph");
     }
   }
 
   for (int out_idx = 0; out_idx < node.output_size(); ++out_idx) {
     if (out_idx >= static_cast<int>(outputs_.size())) {
-      if (outputs_.empty() || Variadic != outputs_.back().GetOption()) {
+      if (!outputs_.empty() && Variadic == outputs_.back().GetOption()) {
+        // The last output formal parameter should be variadic.
+        break;
+      } else {
         fail_check(
             "Node (",
             node.name(),
@@ -223,15 +274,8 @@ void OpSchema::Verify(const NodeProto& node) const {
             ") in op definition.");
       }
     }
-    if ((out_idx >= static_cast<int>(outputs_.size()) && Variadic == outputs_.back().GetOption()) ||
-      Variadic == outputs_[out_idx].GetOption()) {
-      do {
-        if (node.output(out_idx).empty()) {
-          fail_check(
-              "Node (", node.name(), ")'s output ", out_idx, " is marked Variadic but has an empty string in the graph");
-        }
-      } while (++out_idx < node.output_size());
-    } else if (node.output(out_idx).empty() && (Single == outputs_[out_idx].GetOption())) {
+
+    if (node.output(out_idx).empty() && (Single == outputs_[out_idx].GetOption())) {
       fail_check(
           "Node (", node.name(), ")'s output ", out_idx, " is marked single but has an empty string in the graph");
     }
@@ -265,7 +309,14 @@ void OpSchema::Verify(const NodeProto& node) const {
 
     // Type would be UNDEFINED if not set
     if (attr_proto.type() != expected_type) {
-      fail_check("Mismatched attribute type in '", node.name() + " : " + name, "'");
+      fail_check(
+          "Mismatched attribute type in '",
+          node.name() + " : " + name,
+          "'. Expected: '",
+          AttributeProto_AttributeType_Name(expected_type),
+          "', actual: '",
+          AttributeProto_AttributeType_Name(attr_proto.type()),
+          "'");
     }
 
     // ref_attr_name is only valid when non-empty
@@ -303,40 +354,15 @@ void OpSchema::Verify(const NodeProto& node) const {
           fail_check("Attribute '", name, "' is expected to have field 'type_proto'");
         }
         break;
-      case AttributeProto::FLOATS:
-        if (!attr_proto.floats_size()) {
-          fail_check("Attribute '", name, "' is expected to have field 'floats'");
-        }
-        break;
       case AttributeProto::INTS:
-        if (!attr_proto.ints_size()) {
-          fail_check("Attribute '", name, "' is expected to have field 'ints'");
-        }
-        break;
-      case AttributeProto::STRINGS:
-        if (!attr_proto.strings_size()) {
-          fail_check("Attribute '", name, "' is expected to have field 'strings'");
-        }
-        break;
+      case AttributeProto::FLOATS:
       case AttributeProto::TENSORS:
-        if (!attr_proto.tensors_size()) {
-          fail_check("Attribute '", name, "' is expected to have field 'tensors'");
-        }
-        break;
+      case AttributeProto::STRINGS:
       case AttributeProto::SPARSE_TENSORS:
-        // Not adding check ... we should likely delete the check in all other
-        // cases, which will not allow us to have an empty list as a valid value
-        // for an attribute and this seems undesirable.
-        break;
       case AttributeProto::GRAPHS:
-        if (!attr_proto.graphs_size()) {
-          fail_check("Attribute '", name, "' is expected to have field 'graphs'");
-        }
-        break;
       case AttributeProto::TYPE_PROTOS:
-        if (!attr_proto.type_protos_size()) {
-          fail_check("Attribute '", name, "' is expected to have field 'type_protos'");
-        }
+        // No check ... whether an empty list is a valid value for the attribute
+        // is op specific.
         break;
       default:
         fail_check("Attribute '", name, " has unknown expected type");
@@ -357,6 +383,37 @@ void OpSchema::Verify(const NodeProto& node) const {
 
 OpSchema& OpSchema::SinceVersion(OperatorSetVersion v) {
   since_version_ = v;
+
+  // SinceVersion is called after FunctionBody and SetContextDependentFunctionBodyBuilder are called
+  // when defining a op.
+  // FunctionBody() and SetContextDependentFunctionBodyBuilder() use -1 as the default opset_version
+  // default opset_version is for a FunctionProto of the same opset_version as the op's since_version_.
+  // It is indexed with -1 so we need to reindex it with since_version_.
+  //
+  // FunctionProtos of non-default opset_versions are for models whose opset version is higher than the op's
+  // opset version such that ops used in the default function_proto are no longer valid. For example:
+  // A model of opset version 18 contains a LayerNormalization op.
+  // LayerNormalization is function op whese function body uses ReduceMean op.
+  // LayerNormalization's since_version is 17 thus it is good for the model of opset 18.
+  // however, if a runtime needs to inline LayerNormalization, the inlined model has a ReduceMean op.
+  // ReduceMean in opset 18 is different from opset 17.
+  // This requires us to define more than one function body
+  std::map<int, ContextDependentFunctionBodyBuilder>::const_iterator it =
+      opset_version_to_function_builder_.find(OpSchema::kUninitializedSinceVersion);
+
+  if (it != opset_version_to_function_builder_.cend()) {
+    opset_version_to_function_builder_[since_version_] = it->second;
+    opset_version_to_function_builder_.erase(it);
+  }
+
+  std::map<int, std::shared_ptr<FunctionProto>>::const_iterator it_function_body =
+      opset_version_to_function_body_.find(OpSchema::kUninitializedSinceVersion);
+  if (it_function_body != opset_version_to_function_body_.cend()) {
+    opset_version_to_function_body_[since_version_] = it_function_body->second;
+    UpdateFunctionProtoOpsetImportVersion(*opset_version_to_function_body_[since_version_], since_version_);
+    opset_version_to_function_body_.erase(it_function_body);
+  }
+
   return *this;
 }
 
@@ -366,14 +423,14 @@ OpSchema& OpSchema::Deprecate() {
 }
 
 OpSchema& OpSchema::NumInputs(std::set<int> allowed_input_nums) {
-  num_inputs_allowed_ = [MOVE_CAPTURE_IF_CPP14(allowed_input_nums)](int n) -> bool {
+  num_inputs_allowed_ = [allowed_input_nums = std::move(allowed_input_nums)](int n) -> bool {
     return allowed_input_nums.count(n);
   };
   return *this;
 }
 
 OpSchema& OpSchema::NumOutputs(std::set<int> allowed_output_nums) {
-  num_outputs_allowed_ = [MOVE_CAPTURE_IF_CPP14(allowed_output_nums)](int n) -> bool {
+  num_outputs_allowed_ = [allowed_output_nums = std::move(allowed_output_nums)](int n) -> bool {
     return allowed_output_nums.count(n) > 0;
   };
   return *this;
@@ -527,6 +584,14 @@ OpSchema& OpSchema::AllowUncheckedAttributes() {
   return *this;
 }
 
+OpSchema& OpSchema::Input(int n, FormalParameter formal_parameter) {
+  if (inputs_.size() <= static_cast<size_t>(n)) {
+    inputs_.resize(n + 1);
+  }
+  inputs_[n] = std::move(formal_parameter);
+  return *this;
+}
+
 OpSchema& OpSchema::Input(
     int n,
     std::string name,
@@ -536,22 +601,20 @@ OpSchema& OpSchema::Input(
     bool is_homogeneous,
     int min_arity,
     DifferentiationCategory differentiation_category) {
-  if (int(inputs_.size()) <= n) {
-    inputs_.resize(n + 1);
-  }
-  inputs_[n] = FormalParameter(
-      std::move(name),
+  return Input(
+      n,
+      FormalParameter(
+          std::move(name),
 #ifndef __ONNX_NO_DOC_STRINGS
-      description,
+          description,
 #else
-      std::string(),
+          std::string(),
 #endif
-      std::move(type_str),
-      param_option,
-      is_homogeneous,
-      min_arity,
-      differentiation_category);
-  return *this;
+          std::move(type_str),
+          param_option,
+          is_homogeneous,
+          min_arity,
+          differentiation_category));
 }
 
 OpSchema& OpSchema::Input(
@@ -578,6 +641,14 @@ OpSchema& OpSchema::Input(
       differentiation_category);
 }
 
+OpSchema& OpSchema::Output(int n, FormalParameter formal_parameter) {
+  if (outputs_.size() <= static_cast<size_t>(n)) {
+    outputs_.resize(n + 1);
+  }
+  outputs_[n] = std::move(formal_parameter);
+  return *this;
+}
+
 OpSchema& OpSchema::Output(
     int n,
     std::string name,
@@ -587,22 +658,20 @@ OpSchema& OpSchema::Output(
     bool is_homogeneous,
     int min_arity,
     DifferentiationCategory differentiation_category) {
-  if (int(outputs_.size()) <= n) {
-    outputs_.resize(n + 1);
-  }
-  outputs_[n] = FormalParameter(
-      std::move(name),
+  return Output(
+      n,
+      FormalParameter(
+          std::move(name),
 #ifndef __ONNX_NO_DOC_STRINGS
-      description,
+          description,
 #else
-      std::string(),
+          std::string(),
 #endif
-      std::move(type_str),
-      param_option,
-      is_homogeneous,
-      min_arity,
-      differentiation_category);
-  return *this;
+          std::move(type_str),
+          param_option,
+          is_homogeneous,
+          min_arity,
+          differentiation_category));
 }
 
 OpSchema& OpSchema::Output(
@@ -674,48 +743,180 @@ void OpSchema::ParseAndSetTypes(
   }
 }
 
-OpSchema& OpSchema::SetContextDependentFunctionBodyBuilder(ContextDependentFunctionBodyBuilder functionBuilder) {
-  functionBuilder_ = std::move(functionBuilder);
+OpSchema& OpSchema::SetContextDependentFunctionBodyBuilder(
+    ContextDependentFunctionBodyBuilder functionBuilder,
+    int opset_version) {
+  if (opset_version == OpSchema::kUninitializedSinceVersion && since_version_ != OpSchema::kUninitializedSinceVersion) {
+    opset_version_to_function_builder_[since_version_] = std::move(functionBuilder);
+  } else {
+    opset_version_to_function_builder_[opset_version] = std::move(functionBuilder);
+  }
   return *this;
 }
 
-bool OpSchema::BuildContextDependentFunction(const FunctionBodyBuildContext& ctx, FunctionProto& functionProto) const {
-  if (functionBuilder_)
-    return functionBuilder_(ctx, *this, functionProto);
-  else
-    return false;
+bool OpSchema::BuildContextDependentFunction(
+    const FunctionBodyBuildContext& ctx,
+    FunctionProto& function_proto,
+    int requested_opset_version) const {
+  if (requested_opset_version == OpSchema::kUninitializedSinceVersion)
+    requested_opset_version = since_version_;
+
+  std::map<int, ContextDependentFunctionBodyBuilder>::const_iterator it =
+      opset_version_to_function_builder_.upper_bound(requested_opset_version);
+  if (opset_version_to_function_builder_.empty() || it == opset_version_to_function_builder_.begin()) {
+    ONNX_THROW_EX(std::out_of_range(
+        std::string("Cannot find a function builder that satisfies the requested opset version: op_type = ") +
+        this->name_ + ", opset_version = " + std::to_string(requested_opset_version) + "."));
+  } else {
+    --it;
+    const ContextDependentFunctionBodyBuilder& body_builder = it->second;
+    if (!body_builder(ctx, *this, function_proto)) {
+      return false;
+    }
+    //// default opset import may have been added to function_proto by OpSchema::BuildFunction
+    //// we need to update its version with the specified opset_version
+    UpdateFunctionProtoOpsetImportVersion(function_proto, requested_opset_version);
+    ValidateReferencedOpsInFuncton(&function_proto, requested_opset_version, it->first);
+    return true;
+  }
 }
 
-OpSchema& OpSchema::FunctionBody(const char* func_body) {
+// A function of a schema (either stored in opset_version_to_function_body_ or built with one of function builder
+// in opset_version_to_function_builder_) has predefined opset_imports. Before returning the function, we shall
+// update the predefined opset_imports so that it is consistent with the requested version.
+// Note that this call only update opset_import of the default domain.
+// TODO: extend this call to work for no-default domains.
+void OpSchema::UpdateFunctionProtoOpsetImportVersion(FunctionProto& function_proto, int requested_opset_version) const {
+  bool opset_import_exist = false;
+  for (int i = 0; i < function_proto.opset_import_size(); i++) {
+    auto* schema_opset = function_proto.mutable_opset_import(i);
+    if (schema_opset->domain() == domain_) {
+      if (schema_opset->version() != requested_opset_version) {
+        schema_opset->set_version(requested_opset_version);
+      }
+      opset_import_exist = true;
+    }
+  }
+
+  if (!opset_import_exist) {
+    auto* schema_opset = function_proto.mutable_opset_import()->Add();
+    schema_opset->set_domain(domain_);
+    schema_opset->set_version(requested_opset_version);
+  }
+}
+
+OpSchema& OpSchema::FunctionBody(const char* func_body, int opset_version) {
+  if (opset_version == OpSchema::kUninitializedSinceVersion && since_version_ != OpSchema::kUninitializedSinceVersion) {
+    opset_version = since_version_;
+  }
+  std::shared_ptr<FunctionProto> function_proto(new FunctionProto());
   OnnxParser parser(func_body);
-  auto status = parser.Parse(*function_body_.mutable_node());
+  auto status = parser.Parse(*function_proto->mutable_node());
   if (!status.IsOK())
     ONNX_THROW_EX(std::logic_error("Error parsing function body:" + status.ErrorMessage()));
   if (!parser.EndOfInput())
     ONNX_THROW_EX(std::logic_error("Extra unparsed input unexpected."));
+
+  // opset import may have been set
+  // we may need to update its version with the specified opset_version
+  UpdateFunctionProtoOpsetImportVersion(*function_proto, opset_version);
+
+  opset_version_to_function_body_.insert(std::make_pair(opset_version, function_proto));
   return *this;
 }
 
-OpSchema& OpSchema::FunctionBody(const std::vector<NodeProto>& func_nodes) {
+OpSchema& OpSchema::FunctionBody(const std::vector<NodeProto>& func_nodes, int opset_version) {
+  if (opset_version == OpSchema::kUninitializedSinceVersion && since_version_ != OpSchema::kUninitializedSinceVersion) {
+    opset_version = since_version_;
+  }
+  std::shared_ptr<FunctionProto> function_proto(new FunctionProto());
   for (const auto& node : func_nodes) {
-    auto new_node = function_body_.add_node();
+    auto new_node = function_proto->add_node();
     new_node->CopyFrom(node);
   }
+
+  // opset import may have been set
+  // we may need to update its version with the specified opset_version
+  UpdateFunctionProtoOpsetImportVersion(*function_proto, opset_version);
+  opset_version_to_function_body_.insert(std::make_pair(opset_version, function_proto));
   return *this;
 }
 
 OpSchema& OpSchema::FunctionBody(
     const std::vector<NodeProto>& func_nodes,
-    const std::vector<OperatorSetIdProto>& relied_opsets) {
-  for (auto& relied_opset : relied_opsets) {
-    *(function_body_.mutable_opset_import()->Add()) = relied_opset;
+    const std::vector<OperatorSetIdProto>& relied_opsets,
+    int opset_version) {
+  if (opset_version == OpSchema::kUninitializedSinceVersion && since_version_ != OpSchema::kUninitializedSinceVersion) {
+    opset_version = since_version_;
   }
 
-  return FunctionBody(func_nodes);
+  std::shared_ptr<FunctionProto> function_proto(new FunctionProto());
+  for (auto& relied_opset : relied_opsets) {
+    *(function_proto->mutable_opset_import()->Add()) = relied_opset;
+  }
+
+  for (const auto& node : func_nodes) {
+    auto new_node = function_proto->add_node();
+    new_node->CopyFrom(node);
+  }
+  // opset import may have been set
+  // we may need to update its version with the specified opset_version
+  UpdateFunctionProtoOpsetImportVersion(*function_proto, opset_version);
+  opset_version_to_function_body_.insert(std::make_pair(opset_version, function_proto));
+  return *this;
 }
 
-const FunctionProto* OpSchema::GetFunction() const {
-  return function_body_.node_size() > 0 ? &function_body_ : nullptr;
+const FunctionProto* OpSchema::GetFunction(int requested_opset_version, bool validate) const {
+  if (opset_version_to_function_body_.empty())
+    return nullptr;
+  // Return latest FunctionProto when opset version request is not set
+  if (requested_opset_version == OpSchema::kUninitializedSinceVersion) {
+    return opset_version_to_function_body_.rbegin()->second.get();
+  }
+  std::map<int, std::shared_ptr<FunctionProto>>::const_iterator it =
+      opset_version_to_function_body_.upper_bound(requested_opset_version);
+  if (it != opset_version_to_function_body_.begin()) {
+    --it;
+    int function_since_version = it->first;
+    const FunctionProto* function = it->second.get();
+    if (!validate || ValidateReferencedOpsInFuncton(function, requested_opset_version, function_since_version)) {
+      return function;
+    }
+  }
+  return nullptr;
+}
+
+// when requesting a function at loading time,
+// requested_opset_version does not have to be the same as function_since_version.
+// When they are not the same, it is necessary to verify that ops used to define the function
+// are not updated between function_since_version and requested_opset_version (include requested_opset_version).
+// this call only validate ops in the default domain.
+// TODO: validate ops in other domains.
+bool OpSchema::ValidateReferencedOpsInFuncton(
+    const FunctionProto* function,
+    int requested_opset_version,
+    int function_since_version,
+    std::set<std::string>* updated_ops) const {
+  bool all_ops_are_invalid = true;
+  if (requested_opset_version == function_since_version) {
+    return all_ops_are_invalid;
+  }
+  for (auto& node : function->node()) {
+    if (node.domain() == "" || node.domain() == "ai.onnx") {
+      const OpSchema* op1 =
+          OpSchemaRegistry::Instance()->GetSchema(node.op_type(), requested_opset_version, node.domain());
+      const OpSchema* op2 =
+          OpSchemaRegistry::Instance()->GetSchema(node.op_type(), function_since_version, node.domain());
+      if (op1 != op2) {
+        if (updated_ops) {
+          updated_ops->insert(node.op_type());
+        }
+        all_ops_are_invalid = false;
+      }
+    }
+  }
+
+  return all_ops_are_invalid;
 }
 
 OpSchema& OpSchema::FillUsing(const std::function<void(OpSchema&)>& populator) {
@@ -764,6 +965,11 @@ void OpSchema::Finalize() {
   // "optional" but not trailing inputs>. <Max number of inputs> = <number of
   // all inputs or std::numeric_limits<int>::max() (if the last input is
   // variadic).
+
+  max_input_ = 0;
+  min_input_ = 0;
+  min_output_ = 0;
+  max_output_ = 0;
 
   // Flag indicates whether an optional input is trailing one (there's no single
   // or variadic input behind).
@@ -815,8 +1021,8 @@ void OpSchema::Finalize() {
   ParseAndSetTypes(&inputs_);
   ParseAndSetTypes(&outputs_);
 
-  if (this->HasFunction()) {
-    BuildFunction(function_body_);
+  for (auto& func : opset_version_to_function_body_) {
+    BuildFunction(*func.second);
   }
 }
 

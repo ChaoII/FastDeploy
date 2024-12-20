@@ -63,20 +63,12 @@ class MapperHelper {
     return helper;
   }
 
-  int64_t GetAllOps(const std::string& file_path) {
-    std::ofstream outfile(file_path);
-    if (!outfile) {
-      std::cerr << "Failed to open file: " << file_path << std::endl;
-      return mappers.size();
-    }
+  std::vector<std::string> GetAllOps() {
+    std::vector<std::string> operators;
     for (auto iter = mappers.begin(); iter != mappers.end(); iter++) {
-      outfile << iter->first << std::endl;
+      operators.push_back(iter->first);
     }
-    outfile << "Total OPs: " << mappers.size() << std::endl;
-    std::cout << " [ * Paddle2ONNX * ] All Registered OPs saved in "
-              << file_path << std::endl;
-    outfile.close();
-    return mappers.size();
+    return operators;
   }
 
   bool IsRegistered(const std::string& op_name) {
@@ -88,7 +80,8 @@ class MapperHelper {
   }
 
   std::string GenName(const std::string& op_name) {
-    std::string key = "p2o." + op_name + ".";
+    // std::string key = "p2o." + op_name + ".";
+    std::string key = op_name + ".";
     if (name_counter.find(key) == name_counter.end()) {
       name_counter[key] = 0;
     } else {

@@ -2,7 +2,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-
 #include "onnx/defs/schema.h"
 using namespace ONNX_NAMESPACE;
 
@@ -35,16 +34,8 @@ ONNX_OPERATOR_SET_SCHEMA(
             "input image. E.g.; default is 1.0f. ",
             AttributeProto::FLOAT,
             1.f)
-        .Attr(
-            "output_height",
-            "default 1; Pooled output Y's height.",
-            AttributeProto::INT,
-            static_cast<int64_t>(1))
-        .Attr(
-            "output_width",
-            "default 1; Pooled output Y's width.",
-            AttributeProto::INT,
-            static_cast<int64_t>(1))
+        .Attr("output_height", "default 1; Pooled output Y's height.", AttributeProto::INT, static_cast<int64_t>(1))
+        .Attr("output_width", "default 1; Pooled output Y's width.", AttributeProto::INT, static_cast<int64_t>(1))
         .Attr(
             "sampling_ratio",
             "Number of sampling points in the interpolation grid used to compute "
@@ -94,10 +85,7 @@ ONNX_OPERATOR_SET_SCHEMA(
             "T1",
             {"tensor(float16)", "tensor(float)", "tensor(double)"},
             "Constrain types to float tensors.")
-        .TypeConstraint(
-            "T2",
-            {"tensor(int64)"},
-            "Constrain types to int tensors.")
+        .TypeConstraint("T2", {"tensor(int64)"}, "Constrain types to int tensors.")
         .TypeAndShapeInferenceFunction([](InferenceContext& ctx) {
           propagateElemTypeFromInputToOutput(ctx, 0, 0);
 
@@ -128,7 +116,7 @@ ONNX_OPERATOR_SET_SCHEMA(
           updateOutputShape(ctx, 0, {num_rois, C, ht, width});
         }));
 
-static const char* NonMaxSuppression_doc = R"DOC(
+static const char* NonMaxSuppression_ver10_doc = R"DOC(
 Filter out boxes that have high intersection-over-union (IOU) overlap with previously selected boxes.
 Bounding boxes with score less than score_threshold are removed. Bounding box format is indicated by attribute center_point_box.
 Note that this algorithm is agnostic to where the origin is in the coordinate system and more generally is invariant to
@@ -147,11 +135,7 @@ ONNX_OPERATOR_SET_SCHEMA(
             "boxes",
             "An input tensor with shape [num_batches, spatial_dimension, 4]. The single box data format is indicated by center_point_box.",
             "tensor(float)")
-        .Input(
-            1,
-            "scores",
-            "An input tensor with shape [num_batches, num_classes, spatial_dimension]",
-            "tensor(float)")
+        .Input(1, "scores", "An input tensor with shape [num_batches, num_classes, spatial_dimension]", "tensor(float)")
         .Input(
             2,
             "max_output_boxes_per_class",
@@ -183,13 +167,10 @@ ONNX_OPERATOR_SET_SCHEMA(
             "1 - the box data is supplied as [x_center, y_center, width, height]. Mostly used for Pytorch models.",
             AttributeProto::INT,
             static_cast<int64_t>(0))
-        .SetDoc(NonMaxSuppression_doc)
+        .SetDoc(NonMaxSuppression_ver10_doc)
         .TypeAndShapeInferenceFunction([](InferenceContext& ctx) {
-          auto selected_indices_type =
-              ctx.getOutputType(0)->mutable_tensor_type();
-          selected_indices_type->set_elem_type(
-              ::ONNX_NAMESPACE::TensorProto_DataType::
-                  TensorProto_DataType_INT64);
+          auto selected_indices_type = ctx.getOutputType(0)->mutable_tensor_type();
+          selected_indices_type->set_elem_type(::ONNX_NAMESPACE::TensorProto_DataType::TensorProto_DataType_INT64);
         }));
 
 } // namespace ONNX_NAMESPACE

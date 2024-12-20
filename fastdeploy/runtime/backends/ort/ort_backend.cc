@@ -20,6 +20,7 @@
 #include "fastdeploy/runtime/backends/ort/ops/multiclass_nms.h"
 #include "fastdeploy/runtime/backends/ort/utils.h"
 #include "fastdeploy/utils/utils.h"
+#include "onnxruntime_lite_custom_op.h"
 #ifdef ENABLE_PADDLE2ONNX
 #include "paddle2onnx/converter.h"
 #endif
@@ -30,7 +31,7 @@ namespace fastdeploy {
 
 std::vector<OrtCustomOp*> OrtBackend::custom_operators_ =
     std::vector<OrtCustomOp*>();
-
+using namespace Ort::Custom;
 std::wstring ToWstring(const std::string& str) {
   unsigned len = str.size() * 2;
   setlocale(LC_CTYPE, "");
@@ -115,7 +116,7 @@ bool OrtBackend::BuildOption(const OrtBackendOption& option) {
   if (option.device == Device::GPU) {
     auto all_providers = Ort::GetAvailableProviders();
     bool support_cuda = false;
-    std::string providers_msg = "";
+    std::string providers_msg;
     for (size_t i = 0; i < all_providers.size(); ++i) {
       providers_msg = providers_msg + all_providers[i] + ", ";
       if (all_providers[i] == "CUDAExecutionProvider") {
@@ -194,13 +195,12 @@ bool OrtBackend::InitFromPaddle(const std::string& model_buffer,
   bool save_external = false;
 #ifdef ENABLE_PADDLE2ONNX
   std::vector<paddle2onnx::CustomOp> ops;
-  ops.resize(2);
-  strcpy(ops[0].op_name, "multiclass_nms3");
-  strcpy(ops[0].export_op_name, "MultiClassNMS");
-  strcpy(ops[1].op_name, "pool2d");
-  strcpy(ops[1].export_op_name, "AdaptivePool2d");
+  //  ops.resize(2);
+  //  strcpy(ops[0].op_name, "multiclass_nms3");
+  //  strcpy(ops[0].export_op_name, "MultiClassNMS");
+  //  strcpy(ops[1].op_name, "pool2d");
+  //  strcpy(ops[1].export_op_name, "AdaptivePool2d");
   converted_to_fp16 = option.enable_fp16;
-
   std::vector<char*> disable_fp16_ops;
   for (auto i = 0; i < option.ort_disabled_ops_.size(); i++) {
     auto one_type = option.ort_disabled_ops_[i];
@@ -210,10 +210,11 @@ bool OrtBackend::InitFromPaddle(const std::string& model_buffer,
   }
   bool is_exported = paddle2onnx::Export(
       model_buffer.c_str(), model_buffer.size(), params_buffer.c_str(),
-      params_buffer.size(), &model_content_ptr, &model_content_size, 11, true,
-      verbose, true, true, true, ops.data(), 2, "onnxruntime", nullptr, 0, "",
+      params_buffer.size(), &model_content_ptr, &model_content_size, 16, true,
+      true, true, true, true, nullptr, 0, "onnxruntime", nullptr, 0, "",
       &save_external, option.enable_fp16, disable_fp16_ops.data(),
       option.ort_disabled_ops_.size());
+
   for (auto& disable_fp16_op : disable_fp16_ops) {
     delete[] disable_fp16_op;
   }
@@ -223,17 +224,16 @@ bool OrtBackend::InitFromPaddle(const std::string& model_buffer,
             << std::endl;
     return false;
   }
-
   std::string onnx_model_proto(model_content_ptr,
                                model_content_ptr + model_content_size);
   delete[] model_content_ptr;
   model_content_ptr = nullptr;
   if (save_external) {
     model_file_name = "model.onnx";
-    std::fstream f(model_file_name, std::ios::out);
+    std::ofstream f(model_file_name, std::ios::binary);
     FDASSERT(f.is_open(), "Can not open file: %s to save model.",
              model_file_name.c_str());
-    f << onnx_model_proto;
+    f.write(onnx_model_proto.data(), onnx_model_proto.size());
     f.close();
   }
   return InitFromOnnx(onnx_model_proto, option);
@@ -270,14 +270,13 @@ bool OrtBackend::InitFromOnnx(const std::string& model_file,
   } else {
     onnx_model_buffer = model_file;
   }
-
   if (!BuildOption(option)) {
     FDERROR << "Create Ort option fail." << std::endl;
     return false;
   }
-
   InitCustomOperators();
-  if (model_file_name.size()) {
+  model_file_name = "ppyoloe1.onnx";
+  if (!model_file_name.empty()) {
 #ifdef WIN32
     std::wstring widestr =
         std::wstring(model_file_name.begin(), model_file_name.end());
@@ -286,8 +285,10 @@ bool OrtBackend::InitFromOnnx(const std::string& model_file,
     session_ = {env_, model_file_name.c_str(), session_options_};
 #endif
   } else {
+    std::cout << "cccc" << std::endl;
     session_ = {env_, onnx_model_buffer.data(), onnx_model_buffer.size(),
                 session_options_};
+    std::cout << "dddd" << std::endl;
   }
 
   binding_ = std::make_shared<Ort::IoBinding>(session_);
@@ -458,23 +459,19 @@ std::vector<TensorInfo> OrtBackend::GetOutputInfos() {
 
 void OrtBackend::InitCustomOperators() {
 #ifndef NON_64_PLATFORM
-  if (custom_operators_.size() == 0) {
-    MultiClassNmsOp* multiclass_nms = new MultiClassNmsOp{};
-    custom_operators_.push_back(multiclass_nms);
-    if (option_.device == Device::GPU) {
-      AdaptivePool2dOp* adaptive_pool2d =
-          new AdaptivePool2dOp{"CUDAExecutionProvider"};
-      custom_operators_.push_back(adaptive_pool2d);
-    } else {
-      AdaptivePool2dOp* adaptive_pool2d =
-          new AdaptivePool2dOp{"CPUExecutionProvider"};
-      custom_operators_.push_back(adaptive_pool2d);
-    }
-  }
-  for (size_t i = 0; i < custom_operators_.size(); ++i) {
-    custom_op_domain_.Add(custom_operators_[i]);
-  }
-  session_options_.Add(custom_op_domain_);
+//  std::unique_ptr<OrtLiteCustomOp> pool2d_ptr{
+//      CreateLiteCustomOp<AdaptivePool2d>("AdaptivePool2d",
+//                                         "CPUExecutionProvider")};
+//  std::unique_ptr<OrtLiteCustomOp> multiclass_nms_op_ptr{
+//      CreateLiteCustomOp<MultiClassNMS>("MultiClassNMS",
+//                                        "CPUExecutionProvider")};
+//  custom_operators_.push_back(multiclass_nms_op_ptr.get());
+//  custom_operators_.push_back(pool2d_ptr.get());
+//  for (auto& custom_op : custom_operators_) {
+//    custom_op_domain_.Add(custom_op);
+//  }
+//
+//  session_options_.Add(custom_op_domain_);
 #endif
 }
 

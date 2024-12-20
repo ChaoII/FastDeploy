@@ -27,14 +27,17 @@ class SplitMapper : public Mapper {
       : Mapper(p, helper, block_id, op_id) {
     GetAttr("axis", &axis_);
     GetAttr("sections", &sections_);
+    GetAttr("num", &num_);
   }
 
-  int32_t GetMinOpset(bool verbose = false);
-  void Opset7();
-  void Opset13();
+  int32_t GetMinOpsetVersion(bool verbose) override;
+  void Opset7() override;
+  void Opset13() override;
+  void Opset18() override;
 
  private:
   int64_t axis_;
+  int64_t num_;
   std::vector<int64_t> sections_;
 };
 

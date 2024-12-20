@@ -29,7 +29,9 @@ class LayerNormMapper : public Mapper {
     GetAttr("epsilon", &epsilon_);
   }
 
-  void Opset7();
+  void Opset17() override;
+
+  void Opset7() override;
 
  private:
   int64_t begin_norm_axis_;

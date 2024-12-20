@@ -1,9 +1,10 @@
+// Copyright (c) ONNX Project Contributors
+
 /*
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #include "gtest/gtest.h"
-
 #include "onnx/checker.h"
 #include "onnx/defs/parser.h"
 #include "onnx/defs/printer.h"
@@ -19,6 +20,17 @@ static void Parse(T& parsedData, const char* input) {
   auto status = parser.Parse(parsedData);
   EXPECT_TRUE(status.IsOK()) << status.ErrorMessage();
   EXPECT_TRUE(parser.EndOfInput()) << "Extra unparsed input unexpected.";
+  // Extra checks for printer:
+  // Check we can convert data back to text form.
+  std::string text1 = ProtoToString(parsedData);
+  // Check that we can round-trip between the two representations.
+  // We cannot expect equality between text1 and input due to white-space and syntactic sugar,
+  // so, we convert it once more, and check for equality.
+  T temp;
+  status = OnnxParser::Parse(temp, text1.c_str());
+  EXPECT_TRUE(status.IsOK()) << status.ErrorMessage();
+  std::string text2 = ProtoToString(temp);
+  EXPECT_EQ(text1, text2);
 }
 
 template <typename T>
@@ -32,6 +44,18 @@ static void CheckModel(const char* code) {
   Parse(model, code);
 
   checker::check_model(model);
+}
+
+TEST(ParserTest, EscapeStringLiteral) {
+  OnnxParser parser(R"(
+    "123\"56\\89"
+  )");
+
+  std::string s;
+  auto status = parser.ParserBase::Parse(s);
+  EXPECT_TRUE(status.IsOK()) << status.ErrorMessage();
+  EXPECT_TRUE(parser.EndOfInput()) << "Extra unparsed input unexpected.";
+  EXPECT_EQ(s, std::string("123\"56\\89"));
 }
 
 TEST(ParserTest, TypeTest) {
@@ -120,6 +144,11 @@ TEST(ParserTest, TensorProtoTest) {
   Parse(tensorProto, "float[5] {1e1, 2.0e-1, 3.1E-1, 4E+1, 5.5e-10}");
 
   Parse(tensorProto, "string[2] { \"Hello\", \"World\" }");
+
+  // String literals with escape character
+  Parse(tensorProto, R"(
+    string[2] { "Use a \"quoted\" word", "Use a backslash \\ like this." }
+  )");
 }
 
 TEST(ParserTest, AttributeTest) {
@@ -157,6 +186,10 @@ TEST(ParserTest, AttributeTest) {
   EXPECT_EQ(attr.ref_attr_name(), "xyz");
   EXPECT_EQ(attr.type(), AttributeProto_AttributeType::AttributeProto_AttributeType_INTS);
 
+  Parse(attr, "x : ints = []");
+  EXPECT_EQ(attr.type(), AttributeProto_AttributeType::AttributeProto_AttributeType_INTS);
+  EXPECT_EQ(attr.ints_size(), 0);
+
   Parse(attr, R"ONNX(
     body = somegraph (float[N] y, float[N] z) => (float[N] w)
       {
@@ -166,6 +199,12 @@ TEST(ParserTest, AttributeTest) {
 )ONNX");
   EXPECT_EQ(attr.type(), AttributeProto_AttributeType::AttributeProto_AttributeType_GRAPH);
   EXPECT_EQ(attr.g().node_size(), 2);
+
+  Parse(attr, "type = float[3]");
+  EXPECT_EQ(attr.type(), AttributeProto_AttributeType::AttributeProto_AttributeType_TYPE_PROTO);
+  EXPECT_TRUE(attr.tp().has_tensor_type());
+  int float_type = static_cast<int>(TensorProto_DataType::TensorProto_DataType_FLOAT);
+  EXPECT_EQ(attr.tp().tensor_type().elem_type(), float_type);
 }
 
 TEST(ParserTest, AttrListTest) {
@@ -181,6 +220,12 @@ TEST(ParserTest, AttrListTest) {
   EXPECT_EQ(attributes.size(), 2);
   EXPECT_EQ(attributes.Get(0).name(), "x");
   EXPECT_EQ(attributes.Get(1).name(), "w");
+}
+
+TEST(ParserTest, DomainOpCallTest) {
+  const char* code = "x = somedomain.foo(y, z)";
+  NodeProto n;
+  Parse(n, code);
 }
 
 TEST(ParserTest, NodeTest) {
@@ -316,6 +361,86 @@ f (y, z) => (w)
   EXPECT_EQ(fp.node_size(), 2);
   EXPECT_EQ(fp.attribute_size(), 0);
   EXPECT_EQ(fp.opset_import_size(), 1);
+}
+
+TEST(ParserTest, FunctionValueInfoTest) {
+  const char* code = R"ONNX(
+<
+  opset_import: [ "" : 10 ],
+  domain: "ai.onnx.ml",
+  doc_string: "A function test case."
+>
+f (float[N] y, float[N] z) => (float[N] w)
+{
+    x = Add(y, z)
+    w = Mul(x, y)
+}
+)ONNX";
+
+  FunctionProto fp;
+  Parse(fp, code);
+
+  EXPECT_EQ(fp.input_size(), 2);
+  EXPECT_EQ(fp.output_size(), 1);
+  ASSERT_EQ(fp.value_info_size(), 3);
+  EXPECT_EQ(fp.value_info(0).name(), "y");
+  EXPECT_EQ(fp.value_info(1).name(), "z");
+  EXPECT_EQ(fp.value_info(2).name(), "w");
+}
+
+TEST(ParserTest, FunctionValueInfoTest2) {
+  const char* code = R"ONNX(
+<
+  opset_import: [ "" : 10 ],
+  domain: "ai.onnx.ml",
+  doc_string: "A function test case."
+>
+f (float[N] y, float[N] z) => (float[N] w)
+<float[N] x>
+{
+    x = Add(y, z)
+    w = Mul(x, y)
+}
+)ONNX";
+
+  FunctionProto fp;
+  Parse(fp, code);
+
+  EXPECT_EQ(fp.input_size(), 2);
+  EXPECT_EQ(fp.value_info_size(), 4);
+  ASSERT_EQ(fp.output_size(), 1);
+  EXPECT_EQ(fp.value_info(0).name(), "y");
+  EXPECT_EQ(fp.value_info(1).name(), "z");
+  EXPECT_EQ(fp.value_info(2).name(), "w");
+  EXPECT_EQ(fp.value_info(3).name(), "x");
+}
+
+TEST(ParserTest, FunctionValueInfoTest3) {
+  const char* code = R"ONNX(
+<
+  opset_import: [ "" : 10 ],
+  domain: "ai.onnx.ml",
+  doc_string: "A function test case."
+>
+f (float[N] y, z) => (float[N] w)
+<float[N] x, float[N] t>
+{
+    x = Add(y, z)
+    t = Add(x, x)
+    w = Mul(t, y)
+}
+)ONNX";
+
+  FunctionProto fp;
+  Parse(fp, code);
+
+  EXPECT_EQ(fp.input_size(), 2);
+  ASSERT_EQ(fp.value_info_size(), 4);
+  EXPECT_EQ(fp.output_size(), 1);
+  EXPECT_EQ(fp.value_info(0).name(), "y");
+  EXPECT_EQ(fp.value_info(1).name(), "w");
+  EXPECT_EQ(fp.value_info(2).name(), "x");
+  EXPECT_EQ(fp.value_info(3).name(), "t");
 }
 
 TEST(ParserTest, InitializerTest) {
@@ -454,6 +579,88 @@ square (x) => (y) {
 )ONNX";
 
   CheckModel(code);
+
+  const char* code_function_with_attributes = R"ONNX(
+<
+  ir_version: 9,
+  opset_import: [ "" : 15, "custom_domain" : 1]
+>
+agraph (float[N] x) => (float[N] out)
+{
+  out = custom_domain.foo<alpha=2.0, gamma=3.0>(x)
+}
+
+<
+domain: "custom_domain",
+opset_import: [ "" : 15],
+doc_string: "function foo"
+>
+  foo
+  <alpha: float=4.0, gamma>
+  (X) => (C)
+  {
+      constant_alpha = Constant<value_float: float=@alpha>()
+      constant_gamma = Constant<value_float: float=@gamma>()
+      constant_alpha_x = Mul(constant_alpha, X)
+      C = Add(constant_alpha_x, constant_gamma)
+  }
+)ONNX";
+
+  CheckModel(code_function_with_attributes);
+}
+
+TEST(ParserTest, TypesModelTest1) {
+  const char* code = R"ONNX(
+    <
+    ir_version: 8,
+    opset_import: [ "" : 18 ]
+    >
+    agraph (seq(float[N]) seqX) => (float[M, N] X)
+    {
+        X = ConcatFromSequence < axis = 0, new_axis = 1 >(seqX)
+    }
+)ONNX";
+  CheckModel(code);
+}
+
+TEST(ParserTest, TypesModelTest2) {
+  const char* code = R"ONNX(
+    <
+    ir_version: 8,
+    opset_import: [ "" : 18 ]
+    >
+    agraph (float[N] tensorX, seq(float[N]) seqX, map(int32, float[N]) mapX, optional(float[N]) optionalX, sparse_tensor(float[N]) sparseX) => (float[N] X)
+    {
+        X = Identity (tensorX)
+    }
+)ONNX";
+  CheckModel(code);
+}
+
+TEST(ParserTest, ExternalDataTest) {
+  const char* code = R"ONNX(
+agraph (float y = {1.0}, float[N] z) => (w) <
+    float[3, 2] m1 = ["location": "weight_1.bin", "offset": "17"],
+    float[2, 1] m2 = {1.0, 2.0}
+>
+{
+    x = Add(y, z)
+    m = Mul(m1, m1)
+}
+)ONNX";
+
+  GraphProto graph;
+  Parse(graph, code);
+
+  EXPECT_EQ(graph.input_size(), 2);
+  EXPECT_EQ(graph.output_size(), 1);
+  EXPECT_EQ(graph.initializer_size(), 3); // m1, m2
+  EXPECT_EQ(graph.value_info_size(), 0); // x
+  EXPECT_EQ(graph.initializer().Get(1).data_location(), TensorProto_DataLocation::TensorProto_DataLocation_EXTERNAL);
+  EXPECT_EQ(graph.initializer().Get(1).external_data().Get(0).key(), "location");
+  EXPECT_EQ(graph.initializer().Get(1).external_data().Get(0).value(), "weight_1.bin");
+  EXPECT_EQ(graph.initializer().Get(1).external_data().Get(1).key(), "offset");
+  EXPECT_EQ(graph.initializer().Get(1).external_data().Get(1).value(), "17");
 }
 
 } // namespace Test

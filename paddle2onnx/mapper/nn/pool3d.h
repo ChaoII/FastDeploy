@@ -41,8 +41,8 @@ class Pool3dMapper : public Mapper {
       exclusive_ = !exclusive_;
     }
   }
-  int32_t GetMinOpset(bool verbose = false);
-  void Opset7();
+  int32_t GetMinOpsetVersion(bool verbose) override;
+  void Opset7() override;
 
  private:
   bool IsSameSpan(const int64_t& in_size, const int64_t& out_size);
@@ -50,6 +50,7 @@ class Pool3dMapper : public Mapper {
                     const std::vector<TensorInfo>& output_info);
   void NoAdaptivePool(const std::vector<TensorInfo>& input_info,
                       const std::vector<TensorInfo>& output_info);
+  const std::unordered_set<int32_t> kNoNeedCastTypesOpSet7{P2ODataType::FP16, P2ODataType::FP32};
   bool ceil_mode_;
   bool global_pooling_;
   bool adaptive_;

@@ -53,6 +53,8 @@ class FASTDEPLOY_DECL PPOCRv2 : public FastDeployModel {
   PPOCRv2(fastdeploy::vision::ocr::DBDetector* det_model,
                 fastdeploy::vision::ocr::Recognizer* rec_model);
 
+  ~PPOCRv2();
+
   /** \brief Clone a new PPOCRv2 with less memory usage when multiple instances of the same model are created
    *
    * \return new PPOCRv2* type unique pointer

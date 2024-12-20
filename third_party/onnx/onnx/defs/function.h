@@ -7,14 +7,15 @@
 #include <mutex>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "attr_proto_util.h"
 #include "onnx/common/constants.h"
 #include "onnx/common/status.h"
+#include "onnx/defs/parser.h"
 #include "onnx/defs/schema.h"
 #include "tensor_proto_util.h"
-#include "onnx/defs/parser.h"
 
 namespace ONNX_NAMESPACE {
 // Helper function to expand a function node given the function proto
@@ -36,7 +37,7 @@ class FunctionBodyHelper {
     }
 
     template <typename T>
-    AttributeProtoWrapper(const std::string& attr_name, T value) {
+    AttributeProtoWrapper(const std::string& attr_name, const T& value) {
       proto = MakeAttribute(attr_name, value);
     }
   };
@@ -142,7 +143,7 @@ class FunctionBuilder {
   }
 
   template <typename T>
-  FunctionBuilder& Add(const char* node_txt, const std::string& attr_name, T attr_value) {
+  FunctionBuilder& Add(const char* node_txt, const std::string& attr_name, const T& attr_value) {
     return Add(node_txt, MakeAttribute(attr_name, attr_value));
   }
 
@@ -157,7 +158,7 @@ class FunctionBuilder {
   FunctionBuilder& Const(const std::string& name, T const_value) {
     std::string constant_op(name);
     constant_op += " = Constant()";
-    return Add (constant_op.c_str(), MakeAttribute("value", ToTensor(const_value)));
+    return Add(constant_op.c_str(), MakeAttribute("value", ToTensor(const_value)));
   }
 
   // Creates a 1D tensor constant consisting of a single value.
@@ -167,7 +168,7 @@ class FunctionBuilder {
     constant_op += " = Constant()";
     auto tensor = ToTensor(const_value);
     tensor.add_dims(1);
-    return Add (constant_op.c_str(), MakeAttribute("value", tensor));
+    return Add(constant_op.c_str(), MakeAttribute("value", tensor));
   }
 
   // Creates a 1D tensor constant consisting of zero or more values.
@@ -176,9 +177,9 @@ class FunctionBuilder {
     std::string constant_op(name);
     constant_op += " = Constant()";
     auto tensor = ToTensor(values);
-    tensor.add_dims(values.size());  // Treat as 1D tensor.
+    tensor.add_dims(values.size()); // Treat as 1D tensor.
 
-    return Add (constant_op.c_str(), MakeAttribute("value", tensor));
+    return Add(constant_op.c_str(), MakeAttribute("value", tensor));
   }
 
   FunctionBuilder& AddOpset(const char* domain, int version) {

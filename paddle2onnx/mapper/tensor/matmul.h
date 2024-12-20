@@ -30,10 +30,11 @@ class MatmulMapper : public Mapper {
     GetAttr("alpha", &alpha_);
   }
 
-  void Opset7();
+  void Opset7() override;
 
  private:
   std::string GetTrans(std::vector<TensorInfo>& input_info);
+  const std::unordered_set<int32_t> kNoNeedCastTypesOpSet7{P2ODataType::FP16, P2ODataType::FP32, P2ODataType::INT32, P2ODataType::INT64};
   bool transpose_X_ = false;
   bool transpose_Y_ = false;
   float alpha_ = 1.0;

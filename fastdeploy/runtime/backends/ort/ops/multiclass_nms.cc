@@ -83,9 +83,9 @@ float JaccardOverlap(const float* box1, const float* box2,
   }
 }
 
-void MultiClassNmsKernel::FastNMS(const float* boxes, const float* scores,
-                                  const int& num_boxes,
-                                  std::vector<int>* keep_indices) {
+void MultiClassNMS::FastNMS(const float* boxes, const float* scores,
+                            const int& num_boxes,
+                            std::vector<int>* keep_indices) {
   std::vector<std::pair<float, int>> sorted_indices;
   GetMaxScoreIndex(scores, num_boxes, score_threshold, nms_top_k,
                    &sorted_indices);
@@ -107,13 +107,13 @@ void MultiClassNmsKernel::FastNMS(const float* boxes, const float* scores,
       keep_indices->push_back(idx);
     }
     sorted_indices.erase(sorted_indices.begin());
-    if (keep && nms_eta<1.0 & adaptive_threshold> 0.5) {
+    if (keep && nms_eta < 1.0 & adaptive_threshold > 0.5) {
       adaptive_threshold *= nms_eta;
     }
   }
 }
 
-int MultiClassNmsKernel::NMSForEachSample(
+int MultiClassNMS::NMSForEachSample(
     const float* boxes, const float* scores, int num_boxes, int num_classes,
     std::map<int, std::vector<int>>* keep_indices) {
   for (int i = 0; i < num_classes; ++i) {
@@ -156,26 +156,19 @@ int MultiClassNmsKernel::NMSForEachSample(
   return num_det;
 }
 
-void MultiClassNmsKernel::Compute(OrtKernelContext* context) {
-#if ORT_API_VERSION >= 14
-  Ort::KernelContext ort_context{context};
-  Ort::ConstValue boxes = ort_context.GetInput(0);
-  Ort::ConstValue scores = ort_context.GetInput(1);
-#else
-  Ort::CustomOpApi api{ort_};
-  Ort::Unowned<const Ort::Value> boxes{
-      const_cast<OrtValue*>(api.KernelContext_GetInput(context, 0))};
-  Ort::Unowned<const Ort::Value> scores{
-      const_cast<OrtValue*>(api.KernelContext_GetInput(context, 1))};
-#endif
+void MultiClassNMS::Compute(const Ort::Custom::Tensor<float>& boxes_tensor,
+                            const Ort::Custom::Tensor<float>& scores_tensor,
+                            Ort::Custom::Tensor<float>& out_box_tensor,
+                            Ort::Custom::Tensor<int32_t>& out_index_tensor,
+                            Ort::Custom::Tensor<int32_t>& out_num_rois_tensor) {
+  std::cout << "--------muti_class_nms--------------" << std::endl;
+  auto boxes_data = boxes_tensor.Data();
+  auto scores_data = scores_tensor.Data();
 
-  auto boxes_data = boxes.GetTensorData<float>();
-  auto scores_data = scores.GetTensorData<float>();
+  auto boxes_dim = boxes_tensor.Shape();
+  auto scores_dim = scores_tensor.Shape();
 
-  auto boxes_dim = boxes.GetTensorTypeAndShapeInfo().GetShape();
-  auto scores_dim = scores.GetTensorTypeAndShapeInfo().GetShape();
-
-  int score_size = scores_dim.size();
+  size_t score_size = scores_dim.size();
 
   int64_t batch_size = scores_dim[0];
   int64_t box_dim = boxes_dim[2];
@@ -183,18 +176,12 @@ void MultiClassNmsKernel::Compute(OrtKernelContext* context) {
 
   int num_nmsed_out = 0;
   FDASSERT(score_size == 3,
-           "Require rank of input scores be 3, but now it's %d.", score_size);
+           "Require rank of input scores be 3, but now it's %zu.", score_size)
   FDASSERT(boxes_dim[2] == 4,
-           "Require the 3-dimension of input boxes be 4, but now it's %ld.",
-           box_dim);
+           "Require the 3-dimension of input boxes be 4, but now it's %lld.",
+           box_dim)
   std::vector<int64_t> out_num_rois_dims = {batch_size};
-#if ORT_API_VERSION >= 14
-  auto out_num_rois = ort_context.GetOutput(2, out_num_rois_dims);
-#else
-  Ort::Unowned<Ort::Value> out_num_rois{api.KernelContext_GetOutput(
-      context, 2, out_num_rois_dims.data(), out_num_rois_dims.size())};
-#endif
-  int32_t* out_num_rois_data = out_num_rois.GetTensorMutableData<int32_t>();
+  int32_t* out_num_rois_data = out_num_rois_tensor.Allocate(out_num_rois_dims);
 
   std::vector<std::map<int, std::vector<int>>> all_indices;
   for (size_t i = 0; i < batch_size; ++i) {
@@ -212,25 +199,15 @@ void MultiClassNmsKernel::Compute(OrtKernelContext* context) {
   std::vector<int64_t> out_box_dims = {num_nmsed_out, 6};
   std::vector<int64_t> out_index_dims = {num_nmsed_out, 1};
 
-#if ORT_API_VERSION >= 14
-  auto out_box = ort_context.GetOutput(0, out_box_dims);
-  auto out_index = ort_context.GetOutput(1, out_index_dims);
-#else
-  Ort::Unowned<Ort::Value> out_box{api.KernelContext_GetOutput(
-      context, 0, out_box_dims.data(), out_box_dims.size())};
-  Ort::Unowned<Ort::Value> out_index{api.KernelContext_GetOutput(
-      context, 1, out_index_dims.data(), out_index_dims.size())};
-#endif
+  auto out_box_data = out_box_tensor.Allocate(out_box_dims);
+  auto out_index_data = out_index_tensor.Allocate(out_index_dims);
 
   if (num_nmsed_out == 0) {
-    int32_t* out_num_rois_data = out_num_rois.GetTensorMutableData<int32_t>();
     for (size_t i = 0; i < batch_size; ++i) {
       out_num_rois_data[i] = 0;
     }
     return;
   }
-  float* out_box_data = out_box.GetTensorMutableData<float>();
-  int32_t* out_index_data = out_index.GetTensorMutableData<int32_t>();
 
   int count = 0;
   for (size_t i = 0; i < batch_size; ++i) {
@@ -260,28 +237,6 @@ void MultiClassNmsKernel::Compute(OrtKernelContext* context) {
   }
 }
 
-void MultiClassNmsKernel::GetAttribute(const OrtKernelInfo* info) {
-#if ORT_API_VERSION >= 14
-  Ort::ConstKernelInfo ort_info{info};
-  background_label = ort_info.GetAttribute<int64_t>("background_label");
-  keep_top_k = ort_info.GetAttribute<int64_t>("keep_top_k");
-  nms_eta = ort_info.GetAttribute<float>("nms_eta");
-  nms_threshold = ort_info.GetAttribute<float>("nms_threshold");
-  nms_top_k = ort_info.GetAttribute<int64_t>("nms_top_k");
-  normalized = ort_info.GetAttribute<int64_t>("normalized");
-  score_threshold = ort_info.GetAttribute<float>("score_threshold");
-#else
-  Ort::CustomOpApi api{ort_};
-  background_label =
-      api.KernelInfoGetAttribute<int64_t>(info, "background_label");
-  keep_top_k = api.KernelInfoGetAttribute<int64_t>(info, "keep_top_k");
-  nms_eta = api.KernelInfoGetAttribute<float>(info, "nms_eta");
-  nms_threshold = api.KernelInfoGetAttribute<float>(info, "nms_threshold");
-  nms_top_k = api.KernelInfoGetAttribute<int64_t>(info, "nms_top_k");
-  normalized = api.KernelInfoGetAttribute<int64_t>(info, "normalized");
-  score_threshold = api.KernelInfoGetAttribute<float>(info, "score_threshold");
-#endif
-}
 }  // namespace fastdeploy
 
 #endif

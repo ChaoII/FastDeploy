@@ -1,9 +1,13 @@
+// Copyright (c) ONNX Project Contributors
+
 /*
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #include "status.h"
+
 #include <assert.h>
+
 #include "onnx/string_utils.h"
 
 namespace ONNX_NAMESPACE {
@@ -14,8 +18,7 @@ Status::Status(StatusCategory category, int code, const std::string& msg) {
   state_.reset(new State(category, code, msg));
 }
 
-Status::Status(StatusCategory category, int code)
-    : Status(category, code, EmptyString()) {}
+Status::Status(StatusCategory category, int code) : Status(category, code, EmptyString()) {}
 
 bool Status::IsOK() const noexcept {
   return (state_ == NULL);

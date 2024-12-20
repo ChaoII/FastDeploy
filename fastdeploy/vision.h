@@ -32,6 +32,7 @@
 #include "fastdeploy/vision/detection/contrib/yolov7end2end_ort.h"
 #include "fastdeploy/vision/detection/contrib/yolov7end2end_trt.h"
 #include "fastdeploy/vision/detection/contrib/yolov8/yolov8.h"
+#include "fastdeploy/vision/detection/contrib/yolov11/yolov11.h"
 #include "fastdeploy/vision/detection/contrib/yolox.h"
 #include "fastdeploy/vision/detection/contrib/rknpu2/model.h"
 #include "fastdeploy/vision/perception/paddle3d/smoke/smoke.h"

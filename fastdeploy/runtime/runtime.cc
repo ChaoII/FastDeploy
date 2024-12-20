@@ -279,9 +279,8 @@ void Runtime::CreatePaddleBackend() {
   FDASSERT(backend_->Init(option),
            "Failed to initialized Paddle Inference backend.");
 #else
-  FDASSERT(false,
-           "PaddleBackend is not available, please compiled with "
-           "ENABLE_PADDLE_BACKEND=ON.");
+  FDASSERT(false, "PaddleBackend is not available, please compiled with "
+                  "ENABLE_PADDLE_BACKEND=ON.");
 #endif
   FDINFO << "Runtime initialized with Backend::PDINFER in " << option.device
          << "." << std::endl;
@@ -292,9 +291,8 @@ void Runtime::CreateOpenVINOBackend() {
   backend_ = utils::make_unique<OpenVINOBackend>();
   FDASSERT(backend_->Init(option), "Failed to initialize OpenVINOBackend.");
 #else
-  FDASSERT(false,
-           "OpenVINOBackend is not available, please compiled with "
-           "ENABLE_OPENVINO_BACKEND=ON.");
+  FDASSERT(false, "OpenVINOBackend is not available, please compiled with "
+                  "ENABLE_OPENVINO_BACKEND=ON.");
 #endif
   FDINFO << "Runtime initialized with Backend::OPENVINO in " << option.device
          << "." << std::endl;
@@ -305,9 +303,8 @@ void Runtime::CreateTVMBackend() {
   backend_ = utils::make_unique<TVMBackend>();
   FDASSERT(backend_->Init(option), "Failed to initialize TVM backend.");
 #else
-  FDASSERT(false,
-           "TVMBackend is not available, please compiled with "
-           "ENABLE_TVM_BACKEND=ON.");
+  FDASSERT(false, "TVMBackend is not available, please compiled with "
+                  "ENABLE_TVM_BACKEND=ON.");
 #endif
   FDINFO << "Runtime initialized with Backend::TVM in " << option.device << "."
          << std::endl;
@@ -316,12 +313,10 @@ void Runtime::CreateTVMBackend() {
 void Runtime::CreateOrtBackend() {
 #ifdef ENABLE_ORT_BACKEND
   backend_ = utils::make_unique<OrtBackend>();
-
   FDASSERT(backend_->Init(option), "Failed to initialize Backend::ORT.");
 #else
-  FDASSERT(false,
-           "OrtBackend is not available, please compiled with "
-           "ENABLE_ORT_BACKEND=ON.");
+  FDASSERT(false, "OrtBackend is not available, please compiled with "
+                  "ENABLE_ORT_BACKEND=ON.");
 #endif
   FDINFO << "Runtime initialized with Backend::ORT in " << option.device << "."
          << std::endl;
@@ -332,9 +327,8 @@ void Runtime::CreateTrtBackend() {
   backend_ = utils::make_unique<TrtBackend>();
   FDASSERT(backend_->Init(option), "Failed to initialize TensorRT backend.");
 #else
-  FDASSERT(false,
-           "TrtBackend is not available, please compiled with "
-           "ENABLE_TRT_BACKEND=ON.");
+  FDASSERT(false, "TrtBackend is not available, please compiled with "
+                  "ENABLE_TRT_BACKEND=ON.");
 #endif
   FDINFO << "Runtime initialized with Backend::TRT in " << option.device << "."
          << std::endl;
@@ -347,9 +341,8 @@ void Runtime::CreateLiteBackend() {
   FDASSERT(backend_->Init(option),
            "Load model from nb file failed while initializing LiteBackend.");
 #else
-  FDASSERT(false,
-           "LiteBackend is not available, please compiled with "
-           "ENABLE_LITE_BACKEND=ON.");
+  FDASSERT(false, "LiteBackend is not available, please compiled with "
+                  "ENABLE_LITE_BACKEND=ON.");
 #endif
   FDINFO << "Runtime initialized with Backend::PDLITE in " << option.device
          << "." << std::endl;
@@ -360,9 +353,8 @@ void Runtime::CreateRKNPU2Backend() {
   backend_ = utils::make_unique<RKNPU2Backend>();
   FDASSERT(backend_->Init(option), "Failed to initialize RKNPU2 backend.");
 #else
-  FDASSERT(false,
-           "RKNPU2Backend is not available, please compiled with "
-           "ENABLE_RKNPU2_BACKEND=ON.");
+  FDASSERT(false, "RKNPU2Backend is not available, please compiled with "
+                  "ENABLE_RKNPU2_BACKEND=ON.");
 #endif
   FDINFO << "Runtime initialized with Backend::RKNPU2 in " << option.device
          << "." << std::endl;
@@ -385,9 +377,8 @@ void Runtime::CreateSophgoNPUBackend() {
   backend_ = utils::make_unique<SophgoBackend>();
   FDASSERT(backend_->Init(option), "Failed to initialize Sophgo backend.");
 #else
-  FDASSERT(false,
-           "SophgoBackend is not available, please compiled with "
-           "ENABLE_SOPHGO_BACKEND=ON.");
+  FDASSERT(false, "SophgoBackend is not available, please compiled with "
+                  "ENABLE_SOPHGO_BACKEND=ON.");
 #endif
   FDINFO << "Runtime initialized with Backend::SOPHGO in " << option.device
          << "." << std::endl;
@@ -418,9 +409,8 @@ void Runtime::CreatePorosBackend() {
   backend_ = utils::make_unique<PorosBackend>();
   FDASSERT(backend_->Init(option), "Failed to initialize Poros backend.");
 #else
-  FDASSERT(false,
-           "PorosBackend is not available, please compiled with "
-           "ENABLE_POROS_BACKEND=ON.");
+  FDASSERT(false, "PorosBackend is not available, please compiled with "
+                  "ENABLE_POROS_BACKEND=ON.");
 #endif
   FDINFO << "Runtime initialized with Backend::POROS in " << option.device
          << "." << std::endl;
@@ -441,9 +431,8 @@ bool Runtime::Compile(std::vector<std::vector<FDTensor>>& prewarm_tensors) {
                               option.poros_option),
       "Load model from Torchscript failed while initliazing PorosBackend.");
 #else
-  FDASSERT(false,
-           "PorosBackend is not available, please compiled with "
-           "ENABLE_POROS_BACKEND=ON.");
+  FDASSERT(false, "PorosBackend is not available, please compiled with "
+                  "ENABLE_POROS_BACKEND=ON.");
 #endif
   return true;
 }

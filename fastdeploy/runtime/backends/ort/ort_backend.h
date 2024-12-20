@@ -15,17 +15,17 @@
 #pragma once
 
 #include <iostream>
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
-#include <map>
 
 #include "fastdeploy/runtime/backends/backend.h"
 #include "fastdeploy/runtime/backends/ort/option.h"
 #include "onnxruntime_cxx_api.h"  // NOLINT
 
 #ifdef WITH_DIRECTML
-#include "dml_provider_factory.h" // NOLINT
+#include "dml_provider_factory.h"  // NOLINT
 #endif
 
 namespace fastdeploy {
@@ -82,7 +82,7 @@ class OrtBackend : public BaseBackend {
   bool converted_to_fp16 = false;
 
 #ifndef NON_64_PLATFORM
-  Ort::CustomOpDomain custom_op_domain_ = Ort::CustomOpDomain("Paddle");
+  Ort::CustomOpDomain custom_op_domain_{"Paddle"};
 #endif
   OrtBackendOption option_;
   void OrtValueToFDTensor(const Ort::Value& value, FDTensor* tensor,

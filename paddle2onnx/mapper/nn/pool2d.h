@@ -28,22 +28,32 @@ class Pool2dMapper : public Mapper {
     op_mapper_["max"] = {"MaxPool", "GlobalMaxPool"};
     op_mapper_["avg"] = {"AveragePool", "GlobalAveragePool"};
     GetAttr("global_pooling", &global_pooling_);
-    GetAttr("adaptive", &adaptive_);
+    if (HasAttr("adaptive")) {
+      GetAttr("adaptive", &adaptive_);
+    } else {
+      adaptive_ = false;
+    }
     GetAttr("strides", &strides_);
     GetAttr("paddings", &pads_);
     if (OpType() != "max_pool2d_with_index") {
       GetAttr("pooling_type", &pooling_type_);
       GetAttr("data_format", &data_format_);
       GetAttr("ceil_mode", &ceil_mode_);
-      GetAttr("padding_algorithm", &padding_algorithm_);
-      GetAttr("exclusive", &exclusive_);
+      if (HasAttr("padding_algorithm")) {
+        GetAttr("padding_algorithm", &padding_algorithm_);
+      } else {
+        padding_algorithm_ = "EXPLICIT";
+      }
+      if (HasAttr("exclusive")) {
+        GetAttr("exclusive", &exclusive_);
+      } else {
+        exclusive_ = true;
+      }
       exclusive_ = !exclusive_;
     }
   }
-  int32_t GetMinOpset(bool verbose = false);
-  void Opset7();
-  void ExportAsCustomOp();
-  bool IsExportAsCustomOp();
+  int32_t GetMinOpsetVersion(bool verbose) override;
+  void Opset7() override;
 
  private:
   bool IsSameSpan(const int64_t& in_size, const int64_t& out_size);
@@ -51,6 +61,7 @@ class Pool2dMapper : public Mapper {
                     const std::vector<TensorInfo>& output_info);
   void NoAdaptivePool(const std::vector<TensorInfo>& input_info,
                       const std::vector<TensorInfo>& output_info);
+  const std::unordered_set<int32_t> kNoNeedCastTypesOpSet7{P2ODataType::FP16, P2ODataType::FP32};
   bool ceil_mode_;
   bool global_pooling_;
   bool adaptive_;

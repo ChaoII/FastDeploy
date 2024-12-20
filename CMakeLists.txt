@@ -359,6 +359,8 @@ if(WITH_GPU)
                   "${CMAKE_CUDA_COMPILER_ID} ${CMAKE_CUDA_COMPILER_VERSION}")
   include(${PROJECT_SOURCE_DIR}/cmake/cuda.cmake)
 endif()
+set(CMAKE_CXX_STANDARD 17)
+
 
 if(WITH_OPENCL)
   add_definitions(-DWITH_OPENCL)
@@ -531,7 +533,6 @@ if(MSVC)
   file(GLOB FD_FILES_REQUIRE_BIGOBJ ${CSRCS_DIR_NAME}/fastdeploy/function/reduce.cc)
   set_source_files_properties(${FD_FILES_REQUIRE_BIGOBJ} PROPERTIES COMPILE_FLAGS "/bigobj")
 endif()
-
 target_link_libraries(${LIBRARY_NAME} ${DEPEND_LIBS})
 
 if(ENABLE_PADDLE_BACKEND)

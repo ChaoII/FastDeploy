@@ -1,15 +1,19 @@
+# Copyright (c) ONNX Project Contributors
+#
 # SPDX-License-Identifier: Apache-2.0
-# Originally there are some checker failures in weekly-CI
-# Skip them in test_model_zoo.py for now
-# TODO: fix these checker failures
-SKIP_CHECKER_MODELS = {'vision/classification/alexnet/model/bvlcalexnet-3.onnx',  # opset1 typeinference function missing
-                       'vision/classification/caffenet/model/caffenet-3.onnx',  # opset1 typeinference function missing
-                       'vision/classification/densenet-121/model/densenet-3.onnx',  # opset1 typeinference function missing
-                       'vision/classification/inception_and_googlenet/inception_v1/model/inception-v1-3.onnx',  # opset1 typeinference function missing
-                       'vision/classification/inception_and_googlenet/inception_v2/model/inception-v2-3.onnx',  # opset1 typeinference function missing
-                       'vision/classification/rcnn_ilsvrc13/model/rcnn-ilsvrc13-3.onnx',  # opset1 typeinference function missing
-                       'vision/classification/resnet/model/resnet50-caffe2-v1-3.onnx',  # opset1 typeinference function missing
-                       'vision/classification/shufflenet/model/shufflenet-3.onnx',  # opset1 typeinference function missing
-                       'vision/classification/squeezenet/model/squeezenet1.0-3.onnx',  # opset1 typeinference function missing
-                       'vision/classification/vgg/model/vgg19-caffe2-3.onnx',  # opset1 typeinference function missing
-                       'vision/classification/zfnet-512/model/zfnet512-3.onnx'}  # opset1 typeinference function missing
+
+
+SKIP_VERSION_CONVERTER_MODELS = {
+    "vision/classification/inception_and_googlenet/inception_v2/model/inception-v2-6.onnx",  # the converted opset 7 model cannot pass shape inference:
+    # [ShapeInferenceError] (op_type:Mul, node name: ): [ShapeInferenceError] Inferred shape and existing shape differ in dimension 0: (64) vs (1)
+    "vision/classification/resnet/preproc/resnet-preproc-v1-18.onnx",  # preprocessing model contains unknown domain "local"
+    "vision/classification/vgg/model/vgg16-bn-7.onnx",  # version_converter/adapters/transformers.h:30: operator(): Assertion `node->i(attr) == value` failed: Attribute spatial must have value 1
+    "vision/classification/vgg/model/vgg19-bn-7.onnx",  # version_converter/adapters/transformers.h:30: operator(): Assertion `node->i(attr) == value` failed: Attribute spatial must have value 1
+    "vision/object_detection_segmentation/mask-rcnn/model/MaskRCNN-12-int8.onnx",  # unordered_map::at: key not found
+    "vision/object_detection_segmentation/ssd-mobilenetv1/model/ssd_mobilenet_v1_10.onnx",  # starts failing after ONNX 1.15.0 due to subgraph shape inference enhancement:
+    # [ShapeInferenceError] Inference error(s): (op_type:Loop, node name: generic_loop_Loop__48):
+    # [ShapeInferenceError] Inference error(s): (op_type:If, node name: Postprocessor/BatchMultiClassNonMaxSuppression/map/while/PadOrClipBoxList/cond_If__115):
+    # [ShapeInferenceError] Inference error(s): (op_type:Concat, node name: Postprocessor/BatchMultiClassNonMaxSuppression/map/while/PadOrClipBoxList/cond/concat):
+    # [ShapeInferenceError] All inputs to Concat must have same rank. Input 1 has rank 1 != 2
+    # TODO: remove this skip. Tracking by https://github.com/onnx/models/issues/628
+}

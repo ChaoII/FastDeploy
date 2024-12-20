@@ -15,7 +15,12 @@
 #include <algorithm>
 
 #include "fastdeploy/vision/visualize/visualize.h"
-#include "opencv2/calib3d/calib3d.hpp"
+#include "opencv2/core/version.hpp"
+#if CV_VERSION_MAJOR >= 5
+#include <opencv2/calib3d.hpp>
+#else
+#include <opencv2/calib3d/calib3d.hpp>
+#endif
 #include "opencv2/imgproc/imgproc.hpp"
 #include "yaml-cpp/yaml.h"
 
@@ -40,7 +45,8 @@ matrix Multiple(const matrix a, const matrix b) {
   matrix c(m, std::vector<float>(p, 0));
   for (auto i = 0; i < m; i++) {
     for (auto j = 0; j < p; j++) {
-      for (auto k = 0; k < n; k++) c[i][j] += a[i][k] * b[k][j];
+      for (auto k = 0; k < n; k++)
+        c[i][j] += a[i][k] * b[k][j];
     }
   }
   return c;

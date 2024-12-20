@@ -155,7 +155,6 @@ bool FastDeployModel::InitRuntimeWithSpecifiedBackend() {
       return false;
     }
   }
-
   runtime_ = std::shared_ptr<Runtime>(new Runtime());
   if (!runtime_->Init(runtime_option)) {
     return false;
@@ -213,7 +212,6 @@ bool FastDeployModel::InitRuntime() {
   if (runtime_option.backend != Backend::UNKNOWN) {
     return InitRuntimeWithSpecifiedBackend();
   }
-
   return InitRuntimeWithSpecifiedDevice();
 }
 

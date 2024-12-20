@@ -1,37 +1,66 @@
-cmake_minimum_required(VERSION 3.1)
+cmake_minimum_required(VERSION 3.22)
+
+# For std::filesystem
+# Must be a cache variable and be set before project()
+# Reference: https://cmake.org/cmake/help/latest/variable/CMAKE_OSX_DEPLOYMENT_TARGET.html
+# Maybe it can be a normal variable if policy CMP0126 is set to NEW?
+set(CMAKE_OSX_DEPLOYMENT_TARGET 10.15 CACHE STRING "Minimum OS X deployment version")
 
 project(onnx_optimizer C CXX)
 
-# Set C++11 as standard for the whole project
-if(NOT MSVC)
-  set(CMAKE_CXX_STANDARD 11)
-endif(NOT MSVC)
+set(CMAKE_CXX_STANDARD 17)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-option(protobuf_BUILD_TESTS "" OFF)
-add_subdirectory(${PROJECT_SOURCE_DIR}/third_party/protobuf/cmake)
+include(cmake/utils.cmake)
+
+# For integration with onnxruntime_webassembly etc.
+if (NOT DEFINED ONNX_TARGET_NAME)
+  set(ONNX_TARGET_NAME onnx)
+endif()
+
+option(ONNX_OPT_USE_SYSTEM_PROTOBUF "" OFF)
+if(NOT ONNX_OPT_USE_SYSTEM_PROTOBUF)
+  option(protobuf_BUILD_TESTS "" OFF)
+  option(protobuf_MSVC_STATIC_RUNTIME "" ${ONNX_USE_MSVC_STATIC_RUNTIME})
+  add_subdirectory_if_no_target(${PROJECT_SOURCE_DIR}/third_party/protobuf/cmake libprotobuf)
+endif()
+
 
 set(ONNX_ROOT ${PROJECT_SOURCE_DIR}/third_party/onnx)
-add_subdirectory(${ONNX_ROOT})
+add_subdirectory_if_no_target(${ONNX_ROOT} ${ONNX_TARGET_NAME})
 
 file(READ "${PROJECT_SOURCE_DIR}/VERSION_NUMBER" ONNX_OPTIMIZER_VERSION)
 string(STRIP "${ONNX_OPTIMIZER_VERSION}" ONNX_OPTIMIZER_VERSION)
 
-file(GLOB_RECURSE onnx_opt_srcs "onnxoptimizer/*.cc"
+file(GLOB onnx_opt_srcs "onnxoptimizer/*.cc"
     "onnxoptimizer/*.h"
+    "onnxoptimizer/passes/*.cc"
+    "onnxoptimizer/passes/*.h"
     )
 list(REMOVE_ITEM onnx_opt_srcs "${PROJECT_SOURCE_DIR}/onnxoptimizer/cpp2py_export.cc")
 
-add_library(onnx_optimizer ${onnx_opt_srcs})
-target_link_libraries(onnx_optimizer PUBLIC onnx)
+onnxopt_add_library(onnx_optimizer ${onnx_opt_srcs})
+target_link_libraries(onnx_optimizer PUBLIC ${ONNX_TARGET_NAME})
 target_include_directories(onnx_optimizer PUBLIC
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>
     $<INSTALL_INTERFACE:include>
     )
 
-add_executable(onnx_optimizer_exec examples/onnx_optimizer_exec.cpp)
+onnxopt_add_executable(onnx_optimizer_exec examples/onnx_optimizer_exec.cpp)
 target_link_libraries(onnx_optimizer_exec onnx_optimizer)
+
+
+file(GLOB onnx_opt_c_api_srcs "onnxoptimizer/c_api/*.cc"
+  "onnxoptimizer/c_api/*.h"
+    )
+
+onnxopt_add_library(onnx_optimizer_c_api ${onnx_opt_c_api_srcs})
+target_link_libraries(onnx_optimizer_c_api PRIVATE onnx_optimizer)
+target_include_directories(onnx_optimizer_c_api PUBLIC
+    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>
+    $<INSTALL_INTERFACE:include>
+    )
 
 if(BUILD_ONNX_PYTHON)
   if("${PY_EXT_SUFFIX}" STREQUAL "")
@@ -41,8 +70,9 @@ if(BUILD_ONNX_PYTHON)
       set(PY_EXT_SUFFIX ".so")
     endif()
   endif()
+  find_package(Python COMPONENTS Interpreter REQUIRED)
 
-  add_library(onnx_opt_cpp2py_export MODULE "onnxoptimizer/cpp2py_export.cc")
+  onnxopt_add_library(onnx_opt_cpp2py_export MODULE "onnxoptimizer/cpp2py_export.cc")
   set_target_properties(onnx_opt_cpp2py_export PROPERTIES PREFIX "")
   set_target_properties(onnx_opt_cpp2py_export
                         PROPERTIES COMPILE_FLAGS "-fvisibility=hidden")
@@ -52,7 +82,7 @@ if(BUILD_ONNX_PYTHON)
   target_include_directories(onnx_opt_cpp2py_export PRIVATE
                              $<BUILD_INTERFACE:${ONNX_ROOT}>
                              $<INSTALL_INTERFACE:include>
-                             ${PYTHON_INCLUDE_DIR})
+                             ${Python_INCLUDE_DIR})
   # pybind11 is a header only lib
   find_package(pybind11 2.2)
   if(pybind11_FOUND)
@@ -92,9 +122,8 @@ if(BUILD_ONNX_PYTHON)
   target_link_libraries(onnx_opt_cpp2py_export PRIVATE onnx_optimizer)
 
   if(MSVC)
-    find_package(PythonInterp ${PY_VERSION} REQUIRED)
-    find_package(PythonLibs ${PY_VERSION} REQUIRED)
-    target_link_libraries(onnx_opt_cpp2py_export PRIVATE ${PYTHON_LIBRARIES})
+    find_package(Python COMPONENTS Interpreter Development REQUIRED)
+    target_link_libraries(onnx_opt_cpp2py_export PRIVATE ${Python_LIBRARIES})
     target_compile_options(onnx_opt_cpp2py_export
                            PRIVATE /MP
                                    /WX
@@ -121,7 +150,6 @@ if(BUILD_ONNX_PYTHON)
                                              # clients of class 'type2'
                             )
     endif()
-    add_msvc_runtime_flag(onnx_opt_cpp2py_export)
   endif()
 endif()
 
@@ -147,6 +175,6 @@ install(FILES
   COMPONENT dev)
 install(EXPORT ONNXOptimizerTargets DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/ONNXOptimizer")
 install(TARGETS
-  onnx_optimizer
+  onnx_optimizer onnx_optimizer_c_api
   EXPORT ONNXOptimizerTargets DESTINATION ${CMAKE_INSTALL_LIBDIR})
 

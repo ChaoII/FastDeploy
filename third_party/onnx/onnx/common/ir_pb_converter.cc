@@ -1,3 +1,5 @@
+// Copyright (c) ONNX Project Contributors
+
 /*
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -6,13 +8,19 @@
 // Adventurous users should note that the APIs will probably change.
 
 #include "onnx/common/ir_pb_converter.h"
+
+#include <memory>
 #include <sstream>
+#include <string>
+#include <unordered_map>
+#include <unordered_set>
+#include <utility>
+#include <vector>
 
 namespace ONNX_NAMESPACE {
 
 // Part 1: convert ONNX Protobuf to IR
-std::unique_ptr<Graph> graphProtoToGraph(const GraphProto& gp, bool nested,
-  const int ir_version=IR_VERSION);
+std::unique_ptr<Graph> graphProtoToGraph(const GraphProto& gp, bool nested, const int ir_version = IR_VERSION);
 
 Tensor tensorProtoToTensor(const ONNX_NAMESPACE::TensorProto& tp) {
   Tensor ret;
@@ -39,7 +47,11 @@ Tensor tensorProtoToTensor(const ONNX_NAMESPACE::TensorProto& tp) {
     case ONNX_NAMESPACE::TensorProto_DataType_INT16:
     case ONNX_NAMESPACE::TensorProto_DataType_INT32:
     case ONNX_NAMESPACE::TensorProto_DataType_UINT8:
-    case ONNX_NAMESPACE::TensorProto_DataType_UINT16: {
+    case ONNX_NAMESPACE::TensorProto_DataType_UINT16:
+    case ONNX_NAMESPACE::TensorProto_DataType_FLOAT8E4M3FN:
+    case ONNX_NAMESPACE::TensorProto_DataType_FLOAT8E4M3FNUZ:
+    case ONNX_NAMESPACE::TensorProto_DataType_FLOAT8E5M2:
+    case ONNX_NAMESPACE::TensorProto_DataType_FLOAT8E5M2FNUZ: {
       ret.int32s().reserve(tp.int32_data_size());
       for (int i = 0; i < tp.int32_data_size(); i++) {
         ret.int32s().push_back(tp.int32_data(i));
@@ -95,8 +107,7 @@ Tensor tensorProtoToTensor(const ONNX_NAMESPACE::TensorProto& tp) {
   return ret;
 }
 
-void convertAttribute(const ONNX_NAMESPACE::AttributeProto& ap, Node* n,
-  const int ir_version=IR_VERSION) {
+void convertAttribute(const ONNX_NAMESPACE::AttributeProto& ap, Node* n, const int ir_version = IR_VERSION) {
   Symbol sym = Symbol(ap.name());
   switch (ap.type()) {
     case ONNX_NAMESPACE::AttributeProto_AttributeType_FLOAT:
@@ -181,7 +192,7 @@ void convertAttribute(const ONNX_NAMESPACE::AttributeProto& ap, Node* n,
   }
 }
 
-void convertAttributes(ONNX_NAMESPACE::NodeProto& np, Node* n, const int ir_version=IR_VERSION) {
+void convertAttributes(ONNX_NAMESPACE::NodeProto& np, Node* n, const int ir_version = IR_VERSION) {
   for (int i = 0; i < np.attribute_size(); i++) {
     convertAttribute(np.attribute(i), n, ir_version);
   }
@@ -192,27 +203,29 @@ std::vector<Dimension> tensorShapeProtoToDimensions(const ONNX_NAMESPACE::Tensor
   dims.reserve(tsp.dim_size());
   for (int i = 0; i < tsp.dim_size(); i++) {
     if (tsp.dim(i).has_dim_value()) {
-      dims.push_back(Dimension(static_cast<int>(tsp.dim(i).dim_value())));
+      dims.emplace_back(tsp.dim(i).dim_value());
     } else if (tsp.dim(i).has_dim_param()) {
-      dims.push_back(Dimension(tsp.dim(i).dim_param()));
+      dims.emplace_back(tsp.dim(i).dim_param());
     } else {
       // a dimension that has neither dim_value nor dim_param set
       // represents an unknown dimension unrelated to other unknown dimensions.
-      dims.push_back(Dimension());
+      dims.emplace_back();
     }
   }
   return dims;
 }
 
-void createDummyValue(std::unique_ptr<Graph>& g, const std::string& name, std::unordered_map<std::string, Value*>& value_by_name_of) {
+void createDummyValue(
+    std::unique_ptr<Graph>& g,
+    const std::string& name,
+    std::unordered_map<std::string, Value*>& value_by_name_of) {
   auto* undef = g->create(kCaptured, 1);
   g->appendNode(undef);
   undef->outputs()[0]->setUniqueName(name);
   value_by_name_of[name] = undef->outputs()[0];
 }
 
-std::unique_ptr<Graph> graphProtoToGraph(const ONNX_NAMESPACE::GraphProto& gp,
-  bool nested, const int ir_version) {
+std::unique_ptr<Graph> graphProtoToGraph(const ONNX_NAMESPACE::GraphProto& gp, bool nested, const int ir_version) {
   std::unique_ptr<Graph> g(new Graph());
 
   if (gp.has_name()) {
@@ -231,7 +244,7 @@ std::unique_ptr<Graph> graphProtoToGraph(const ONNX_NAMESPACE::GraphProto& gp,
   // 3) initialize inputs of all Nodes
   // 4) initialize inputs of the Return sentinel node
   // 5) fill in type info for graph outputs, and register them as outputs
-  // 5) fill in type info for Values from the value_info list in the graph
+  // 6) fill in type info for Values from the value_info list in the graph
 
   // In ONNX proto land, Values are just strings. We are going to make
   // objects out of them, and equal strings must be mapped to the same
@@ -256,7 +269,7 @@ std::unique_ptr<Graph> graphProtoToGraph(const ONNX_NAMESPACE::GraphProto& gp,
   }
 
   for (int i = 0; i < gp.input_size(); i++) {
-    auto vip = gp.input(i);
+    const auto& vip = gp.input(i);
     auto v = g->addInput();
     const auto& tensor_type = vip.type().tensor_type();
     if (tensor_type.has_elem_type()) {
@@ -267,6 +280,23 @@ std::unique_ptr<Graph> graphProtoToGraph(const ONNX_NAMESPACE::GraphProto& gp,
     }
     v->setUniqueName(vip.name());
     value_by_name_of[vip.name()] = v;
+  }
+
+  // initializers should be added before all nodes,
+  // otherwise getNextUnique() may conflicts with an existing initializer name.
+  for (int i = 0; i < gp.initializer_size(); ++i) {
+    auto init = tensorProtoToTensor(gp.initializer(i));
+    // If ir_version >= 4, initializer does not have to be included in input
+    // Create a Value from initializer by addInitializerNode if name does not exist in input
+    // and save it into value_by_name_of for later use (node input)
+    if (ir_version >= 4 && value_by_name_of.count(init.name()) == 0) {
+      value_by_name_of[init.name()] = g->addInitializerAndCreateValue(init);
+    } else {
+      // If ir_version < 4 or the initializer exists in input
+      // Simply add initializer without creating new value
+      // which means it will prioritize input value over initializer value if both exist
+      g->addInitializer(init);
+    }
   }
 
   for (int i = 0; i < gp.node_size(); i++) {
@@ -296,20 +326,8 @@ std::unique_ptr<Graph> graphProtoToGraph(const ONNX_NAMESPACE::GraphProto& gp,
     if (np.has_domain()) {
       n->setDomain(np.domain());
     }
-  }
-
-  for (int i = 0; i < gp.initializer_size(); ++i) {
-    auto init = tensorProtoToTensor(gp.initializer(i));
-    // If ir_version >= 4, initializer does not have to be included in input
-    // Create a Value from initializer by addInitializerNode if name does not exist in input
-    // and save it into value_by_name_of for later use (node input)
-    if (ir_version >= 4 && value_by_name_of.count(init.name()) == 0) {
-      value_by_name_of[init.name()] = g->addInitializerAndCreateValue(init);
-    } else {
-      // If ir_version < 4 or the initializer exists in input
-      // Simply add initializer without creating new value
-      // which means it will prioritize input value over initializer value if both exist
-      g->addInitializer(init);
+    if (np.has_overload()) {
+      n->setOverload(np.overload());
     }
   }
 
@@ -318,7 +336,7 @@ std::unique_ptr<Graph> graphProtoToGraph(const ONNX_NAMESPACE::GraphProto& gp,
     if (search == inputs_by_node.end()) {
       continue;
     }
-    for (auto input : search->second) {
+    for (const auto& input : search->second) {
       if (!value_by_name_of.count(input) && nested) {
         // Undefined reference to an input in a nested block. This may be a
         // captured value. Create a dummy node that we ignore later.
@@ -372,7 +390,8 @@ std::unique_ptr<Graph> graphProtoToGraph(const ONNX_NAMESPACE::GraphProto& gp,
 std::unique_ptr<Graph> ImportModelProto(const ModelProto& mp) {
   if (!mp.has_ir_version()) {
     return nullptr;
-  } else if (mp.ir_version() == 1) {
+  } else if (mp.ir_version() <= 1) {
+    // ir_version=1 is not supported and ir_version=0 is illegal
     return nullptr;
   }
 
@@ -622,6 +641,9 @@ void encodeGraph(GraphProto* p_g, const std::shared_ptr<Graph>& g) {
     if (node->has_domain()) {
       p_n->set_domain(node->domain());
     }
+    if (node->has_overload()) {
+      p_n->set_overload(node->overload());
+    }
   }
 
   auto num_initializers = g->initializers().size();
@@ -689,7 +711,7 @@ ModelProto PrepareOutput(const ModelProto& mp_in) {
   return mp_out;
 }
 
-void assertNonNull(std::shared_ptr<Graph> g) {
+void assertNonNull(const std::shared_ptr<Graph>& g) {
   ONNX_ASSERTM(
       g.get() != nullptr,
       "Warning: onnx version converter is unable to parse input model. "

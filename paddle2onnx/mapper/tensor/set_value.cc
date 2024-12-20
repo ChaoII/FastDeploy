@@ -17,7 +17,7 @@
 namespace paddle2onnx {
 REGISTER_MAPPER(set_value, SetValueMapper)
 
-int32_t SetValueMapper::GetMinOpset(bool verbose) {
+int32_t SetValueMapper::GetMinOpsetVersion(bool verbose) {
   if (none_axes_.size() > 0) {
     Error() << "Attribute none_axes is not supported." << std::endl;
     return -1;
@@ -37,7 +37,6 @@ int32_t SetValueMapper::GetMinOpset(bool verbose) {
             << std::endl;
     return -1;
   }
-  Logger(verbose, 12) << RequireOpset(12) << std::endl;
   return 12;
 }
 

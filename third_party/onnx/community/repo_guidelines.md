@@ -1,4 +1,8 @@
-<!--- SPDX-License-Identifier: Apache-2.0 -->
+<!--
+Copyright (c) ONNX Project Contributors
+
+SPDX-License-Identifier: Apache-2.0
+-->
 
 # Repositories under ONNX GitHub organization
 
@@ -6,12 +10,12 @@ The ONNX GitHub organization contains a number of repositories. Every repository
 
 ## Rules for all repos
 
-* Must be owned and managed by one of the ONNX SIGs
+* Must be owned and managed by one of the ONNX SIGs or the Steering Committee
 * Must be actively maintained
 * Must adopt the ONNX Code of Conduct
-* Must adopt the standard ONNX license(s)
-* Must adopt the ONNX CLA bot
-* Must adopt all ONNX automation (like LGTM)
+* Must adopt the standard ONNX license(s) [All code projects use the Apache 2.0 license. Documentation repositories must use the Creative Commons License version 4.0.]
+* Must adopt the ONNX DCO bot
+* Must adopt all ONNX automation (like static code analysis)
 * Must have CI or other automation in place for repos containing code to ensure quality
 * All OWNERS must be members of standing as defined by ability to vote in Steering Committee elections.
 
@@ -22,9 +26,10 @@ We are happy to accept contributions as repos under the ONNX organization of new
 * Project is closely related to ONNX
 * Adds value to the ONNX ecosystem
 * Determined to need a new repo rather than a folder in an existing repo
-* All contributors must have signed the ONNX CLA
+* Applicable and usable by a wide set of ONNX users (for example, implemented support for multiple hardware backends at time of contribution or committment to do so soon after)
+* All contributors must have signed the ONNX DCO
 * Licenses of dependencies must be acceptable
-* Committment to maintain the repo
+* Commitment to maintain the repo
 * Approval of the SIG that will own the repo
 * Approval of the Steering Committee
 

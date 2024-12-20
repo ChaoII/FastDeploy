@@ -13,12 +13,15 @@
 // limitations under the License.
 
 #include "paddle2onnx/mapper/tensor/atan2.h"
-#define M_PI 3.14159265358979323846 /* pi */
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846264338327950288
+#endif
 
 namespace paddle2onnx {
 REGISTER_MAPPER(atan2, Atan2Mapper)
 
-int32_t Atan2Mapper::GetMinOpset(bool verbose) {
+int32_t Atan2Mapper::GetMinOpsetVersion(bool verbose) {
   if (GetInput("X1")[0].dtype == P2ODataType::INT32 ||
       GetInput("X2")[0].dtype == P2ODataType::INT32 ||
       GetInput("X1")[0].dtype == P2ODataType::INT64 ||
@@ -57,7 +60,7 @@ void Atan2Mapper::Opset9() {
       helper_->AutoCast(minus_node->output(0), dtype, P2ODataType::BOOL);
 
   std::string pi_node =
-      helper_->Constant(GetOnnxDtype(dtype), std::vector<float>{static_cast<float>(M_PI)});
+      helper_->Constant(GetOnnxDtype(dtype), std::vector<float>{M_PI});
 
   auto sign_node = helper_->MakeNode("Sign", {input_x_name});
 

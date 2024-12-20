@@ -1,10 +1,12 @@
+# Copyright (c) ONNX Project Contributors
+#
 # SPDX-License-Identifier: Apache-2.0
 
-import numpy as np  # type: ignore
+import numpy as np
 
 import onnx
-from ..base import Base
-from . import expect
+from onnx.backend.test.case.base import Base
+from onnx.backend.test.case.node import expect
 
 
 # Layer normalization's reference implementation
@@ -75,19 +77,18 @@ class LayerNormalization(Base):
             Y, mean, inv_std_dev = _layer_normalization(X, W, B, axis)
 
             node = onnx.helper.make_node(
-                'LayerNormalization',
-                inputs=['X', 'W', 'B'],
-                outputs=['Y', 'Mean', 'InvStdDev'],
+                "LayerNormalization",
+                inputs=["X", "W", "B"],
+                outputs=["Y", "Mean", "InvStdDev"],
                 axis=axis,
             )
 
             if axis < 0:
-                name = f'test_layer_normalization_4d_axis_negative_{-axis}'
+                name = f"test_layer_normalization_4d_axis_negative_{-axis}"
             else:
-                name = f'test_layer_normalization_4d_axis{axis}'
+                name = f"test_layer_normalization_4d_axis{axis}"
 
-            expect(node, inputs=[X, W, B], outputs=[Y, mean, inv_std_dev],
-                   name=name)
+            expect(node, inputs=[X, W, B], outputs=[Y, mean, inv_std_dev], name=name)
 
         for i in range(len(X.shape)):
             case(i)
@@ -106,13 +107,17 @@ class LayerNormalization(Base):
 
         # Not specifying axis attribute means -1.
         node = onnx.helper.make_node(
-            'LayerNormalization',
-            inputs=['X', 'W', 'B'],
-            outputs=['Y', 'Mean', 'InvStdDev']
+            "LayerNormalization",
+            inputs=["X", "W", "B"],
+            outputs=["Y", "Mean", "InvStdDev"],
         )
 
-        expect(node, inputs=[X, W, B], outputs=[Y, mean, inv_std_dev],
-                name='test_layer_normalization_default_axis')
+        expect(
+            node,
+            inputs=[X, W, B],
+            outputs=[Y, mean, inv_std_dev],
+            name="test_layer_normalization_default_axis",
+        )
 
     @staticmethod
     def export2d() -> None:
@@ -125,19 +130,18 @@ class LayerNormalization(Base):
             Y, mean, inv_std_dev = _layer_normalization(X, W, B, axis=axis)
 
             node = onnx.helper.make_node(
-                'LayerNormalization',
-                inputs=['X', 'W', 'B'],
-                outputs=['Y', 'Mean', 'InvStdDev'],
+                "LayerNormalization",
+                inputs=["X", "W", "B"],
+                outputs=["Y", "Mean", "InvStdDev"],
                 axis=axis,
             )
 
             if axis < 0:
-                name = f'test_layer_normalization_2d_axis_negative_{-axis}'
+                name = f"test_layer_normalization_2d_axis_negative_{-axis}"
             else:
-                name = f'test_layer_normalization_2d_axis{axis}'
+                name = f"test_layer_normalization_2d_axis{axis}"
 
-            expect(node, inputs=[X, W, B], outputs=[Y, mean, inv_std_dev],
-                   name=name)
+            expect(node, inputs=[X, W, B], outputs=[Y, mean, inv_std_dev], name=name)
 
         for i in range(len(X.shape)):
             case(i)
@@ -145,28 +149,28 @@ class LayerNormalization(Base):
 
     @staticmethod
     def export3d_epsilon() -> None:
+        epsilon = 1e-1
         X = np.random.randn(2, 3, 5).astype(np.float32)
 
         def case(axis: int) -> None:
             normalized_shape = calculate_normalized_shape(X.shape, axis)
             W = np.random.randn(*normalized_shape).astype(np.float32)
             B = np.random.randn(*normalized_shape).astype(np.float32)
-            Y, mean, inv_std_dev = _layer_normalization(X, W, B, axis)
+            Y, mean, inv_std_dev = _layer_normalization(X, W, B, axis, epsilon)
             node = onnx.helper.make_node(
-                'LayerNormalization',
-                inputs=['X', 'W', 'B'],
-                outputs=['Y', 'Mean', 'InvStdDev'],
+                "LayerNormalization",
+                inputs=["X", "W", "B"],
+                outputs=["Y", "Mean", "InvStdDev"],
                 axis=axis,
-                epsilon=1e-1
+                epsilon=epsilon,
             )
 
             if axis < 0:
-                name = f'test_layer_normalization_3d_axis_negative_{-axis}_epsilon'
+                name = f"test_layer_normalization_3d_axis_negative_{-axis}_epsilon"
             else:
-                name = f'test_layer_normalization_3d_axis{axis}_epsilon'
+                name = f"test_layer_normalization_3d_axis{axis}_epsilon"
 
-            expect(node, inputs=[X, W, B], outputs=[Y, mean, inv_std_dev],
-                   name=name)
+            expect(node, inputs=[X, W, B], outputs=[Y, mean, inv_std_dev], name=name)
 
         for i in range(len(X.shape)):
             case(i)

@@ -17,12 +17,13 @@
 namespace paddle2onnx {
 REGISTER_MAPPER(bilinear_interp, InterpolateMapper)
 REGISTER_MAPPER(bilinear_interp_v2, InterpolateMapper)
+REGISTER_MAPPER(nearest_interp, InterpolateMapper)
 REGISTER_MAPPER(nearest_interp_v2, InterpolateMapper)
 REGISTER_MAPPER(bicubic_interp_v2, InterpolateMapper)
 REGISTER_MAPPER(linear_interp_v2, InterpolateMapper)
 REGISTER_MAPPER(trilinear_interp_v2, InterpolateMapper)
 
-int32_t InterpolateMapper::GetMinOpset(bool verbose) {
+int32_t InterpolateMapper::GetMinOpsetVersion(bool verbose) {
   if (data_layout_ == "NHWC") {
     Error() << "Data format of NHWC is not supported." << std::endl;
     return -1;
@@ -33,7 +34,6 @@ int32_t InterpolateMapper::GetMinOpset(bool verbose) {
             << x_info[0].Rank() << std::endl;
     return -1;
   }
-  Logger(verbose, 11) << RequireOpset(11) << std::endl;
   return 11;
 }
 
@@ -95,12 +95,21 @@ void InterpolateMapper::Opset11() {
       out_size.push_back(out_w_);
       size = helper_->Constant(ONNX_NAMESPACE::TensorProto::INT64, out_size);
     } else {
-      std::vector<float> scale_;
-      GetAttr("scale", &scale_);
+      std::vector<float> scale_vector;
       float padding = 1.0;
-      scale_.insert(scale_.begin(), padding);
-      scale_.insert(scale_.begin(), padding);
-      scale = helper_->Constant(ONNX_NAMESPACE::TensorProto::FLOAT, scale_);
+      GetAttr("scale", &scale_vector);
+      if (scale_vector.size() != 0){
+        scale_vector.insert(scale_vector.begin(), padding);
+        scale_vector.insert(scale_vector.begin(), padding);
+      }else{
+        float scale;
+        GetAttr("scale", &scale);
+        scale_vector.emplace_back(padding);
+        scale_vector.emplace_back(padding);
+        scale_vector.emplace_back(scale);
+        scale_vector.emplace_back(scale);
+      } 
+      scale = helper_->Constant(ONNX_NAMESPACE::TensorProto::FLOAT, scale_vector);
     }
   }
   std::string roi = helper_->Constant(ONNX_NAMESPACE::TensorProto::FLOAT, std::vector<float>());

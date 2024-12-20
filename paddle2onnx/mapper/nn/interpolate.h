@@ -32,15 +32,15 @@ class InterpolateMapper : public Mapper {
 
     resize_mapper_["bilinear_interp"] = "linear";
     resize_mapper_["bilinear_interp_v2"] = "linear";
+    resize_mapper_["nearest_interp"] = "nearest";
     resize_mapper_["nearest_interp_v2"] = "nearest";
     resize_mapper_["bicubic_interp_v2"] = "cubic";
     resize_mapper_["linear_interp_v2"] = "linear";
     resize_mapper_["trilinear_interp_v2"] = "linear";
   }
 
-  int32_t GetMinOpset(bool verbose = false);
-  void Opset11();
-
+  int32_t GetMinOpsetVersion(bool verbose) override;
+  void Opset11() override;
  private:
   std::string ComputeOutSize();
   std::string ComputeScale();

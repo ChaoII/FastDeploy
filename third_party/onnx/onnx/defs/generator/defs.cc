@@ -2,28 +2,25 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-
-#include <cmath>
 #include <algorithm>
+#include <cmath>
+
 #include "onnx/defs/function.h"
+#include "onnx/defs/generator/utils.h"
 #include "onnx/defs/schema.h"
 
 namespace ONNX_NAMESPACE {
-static const char* Constant_ver13_doc = R"DOC(
+static const char* Constant_ver19_doc = R"DOC(
 This operator produces a constant tensor. Exactly one of the provided attributes, either value, sparse_value,
 or value_* must be specified.
 )DOC";
 
 ONNX_OPERATOR_SET_SCHEMA(
     Constant,
-    13,
+    21,
     OpSchema()
-        .SetDoc(Constant_ver13_doc)
-        .Attr(
-            "value",
-            "The value for the elements of the output tensor.",
-            AttributeProto::TENSOR,
-            false)
+        .SetDoc(Constant_ver19_doc)
+        .Attr("value", "The value for the elements of the output tensor.", AttributeProto::TENSOR, false)
         .Attr(
             "sparse_value",
             "The value for the elements of the output tensor in sparse format.",
@@ -59,135 +56,19 @@ ONNX_OPERATOR_SET_SCHEMA(
             "The values for the elements for the 1D, UTF-8 string, output tensor.",
             AttributeProto::STRINGS,
             false)
-        .Output(
-            0,
-            "output",
-            "Output tensor containing the same value of the provided tensor.",
-            "T")
-        .TypeConstraint(
-            "T",
-            OpSchema::all_tensor_types_with_bfloat(),
-            "Constrain input and output types to all tensor types.")
-        .TypeAndShapeInferenceFunction([](InferenceContext& ctx) {
-          auto* value = ctx.getAttribute("value");
-          auto* sparse_value = ctx.getAttribute("sparse_value");
-          auto* value_int = ctx.getAttribute("value_int");
-          auto* value_ints = ctx.getAttribute("value_ints");
-          auto* value_float = ctx.getAttribute("value_float");
-          auto* value_floats = ctx.getAttribute("value_floats");
-          auto* value_string = ctx.getAttribute("value_string");
-          auto* value_strings = ctx.getAttribute("value_strings");
+        .Output(0, "output", "Output tensor containing the same value of the provided tensor.", "T")
+        .TypeConstraint("T", OpSchema::all_tensor_types_ir10(), "Constrain input and output types to all tensor types.")
+        .TypeAndShapeInferenceFunction(ConstantOpInference));
 
-          std::vector<bool> non_null_attr = {
-            (nullptr != value),
-            (nullptr != sparse_value),
-            (nullptr != value_int),
-            (nullptr != value_ints),
-            (nullptr != value_float),
-            (nullptr != value_floats),
-            (nullptr != value_string),
-            (nullptr != value_strings)
-          };
-          if (std::count(non_null_attr.begin(), non_null_attr.end(), true) != 1) {
-            fail_shape_inference(
-                "One and only one of the attributes 'value', 'value_*' or 'sparse_value' must be specified for a Constant node.");
-          }
-
-          if (nullptr != value) {
-            // OpSchema::Verify check ensures that the attribute value has_t():
-            const TensorProto& tensor_proto = value->t();
-            updateOutputElemType(ctx, 0, tensor_proto.data_type());
-            updateOutputShape(ctx, 0, tensor_proto);
-            return;
-          }
-
-          if (nullptr != value_int) {
-            // OpSchema::Verify check ensures that the attribute value has_i():
-            if (!value_int->has_i()) {
-              fail_shape_inference("Attribute 'value_int' expect an integer.")
-            }
-            updateOutputElemType(ctx, 0, TensorProto::INT64);
-            updateOutputShape(ctx, 0, TensorShapeProto());
-            return;
-          }
-
-          if (nullptr != value_ints) {
-            // OpSchema::Verify check ensures that the attribute value has ints.
-            if (value_ints->ints_size() < 1) {
-              fail_shape_inference("Attribute 'value_ints' expect a list of integers.");
-            }
-            updateOutputElemType(ctx, 0, TensorProto::INT64);
-            appendDim(getOutputShape(ctx, 0), value_ints->ints_size());
-            return;
-          }
-
-          if (nullptr != value_float) {
-            // OpSchema::Verify check ensures that the attribute value has_i():
-            if (!value_float->has_f()) {
-              fail_shape_inference("Attribute 'value_float' expect a float.");
-            }
-            updateOutputElemType(ctx, 0, TensorProto::FLOAT);
-            updateOutputShape(ctx, 0, TensorShapeProto());
-            return;
-          }
-
-          if (nullptr != value_floats) {
-            // OpSchema::Verify check ensures that the attribute value has ints.
-            if (value_floats->floats_size() < 1) {
-              fail_shape_inference("Attribute 'value_floats' expect a list of floats.");
-            }
-            updateOutputElemType(ctx, 0, TensorProto::FLOAT);
-            appendDim(getOutputShape(ctx, 0), value_floats->floats_size());
-            return;
-          }
-
-          if (nullptr != value_string) {
-            // OpSchema::Verify check ensures that the attribute value has_i():
-            if (!value_string->has_s()) {
-              fail_shape_inference("Attribute 'value_string' expect a string.");
-            }
-            updateOutputElemType(ctx, 0, TensorProto::STRING);
-            updateOutputShape(ctx, 0, TensorShapeProto());
-            return;
-          }
-
-          if (nullptr != value_strings) {
-            // OpSchema::Verify check ensures that the attribute value has ints.
-            if (value_strings->strings_size() < 1) {
-              fail_shape_inference("Attribute 'value_strings' expect a list of strings.");
-            }
-            updateOutputElemType(ctx, 0, TensorProto::STRING);
-            appendDim(getOutputShape(ctx, 0), value_strings->strings_size());
-            return;
-          }
-
-          if (nullptr != sparse_value) {
-            // OpSchema::Verify check ensures that the attribute value
-            // has_sparse_tensor():
-            const SparseTensorProto& sparse = sparse_value->sparse_tensor();
-            // checker.cc::check_sparse_tensor checks that the sparse-value is
-            // well-formed
-            updateOutputElemType(ctx, 0, sparse.values().data_type());
-            auto* output_shape = getOutputShape(ctx, 0);
-            for (int i = 0; i < sparse.dims_size(); ++i)
-              appendDim(output_shape, sparse.dims(i));
-            return;
-          }
-
-          fail_shape_inference(
-              "TypeAndShapeInferenceFunction implementation incomplete: "
-              "this line should never be reached.");
-        }));
-
-static const char* ConstantOfShape_ver9_doc = R"DOC(
+static const char* ConstantOfShape_ver20_doc = R"DOC(
 Generate a tensor with given value and shape.
 )DOC";
 
 ONNX_OPERATOR_SET_SCHEMA(
     ConstantOfShape,
-    9,
+    21,
     OpSchema()
-        .SetDoc(ConstantOfShape_ver9_doc)
+        .SetDoc(ConstantOfShape_ver20_doc)
         .Attr(
             "value",
             "(Optional) The value of the output elements."
@@ -222,12 +103,18 @@ ONNX_OPERATOR_SET_SCHEMA(
              "tensor(uint16)",
              "tensor(uint32)",
              "tensor(uint64)",
-             "tensor(bool)"},
-            "Constrain output types to be numerics.")
+             "tensor(uint4)",
+             "tensor(int4)",
+             "tensor(bool)",
+             "tensor(bfloat16)",
+             "tensor(float8e4m3fn)",
+             "tensor(float8e4m3fnuz)",
+             "tensor(float8e5m2)",
+             "tensor(float8e5m2fnuz)"},
+            "Constrain output types to be numerics or boolean.")
         .TypeAndShapeInferenceFunction([](InferenceContext& ctx) {
           if (ctx.getAttribute("value") != nullptr) {
-            propagateElemTypeFromDtypeToOutput(
-                ctx, ctx.getAttribute("value"), 0);
+            propagateElemTypeFromDtypeToOutput(ctx, ctx.getAttribute("value"), 0);
           } else {
             propagateElemTypeFromDtypeToOutput(ctx, TensorProto::FLOAT, 0);
           }
@@ -268,16 +155,8 @@ ONNX_OPERATOR_SET_SCHEMA(
             "specified, then type defaults to 'float'.",
             AttributeProto::INT,
             OPTIONAL_VALUE)
-        .Input(
-            0,
-            "input",
-            "2D input tensor to copy shape, and optionally, type information from.",
-            "T1")
-        .Output(
-            0,
-            "output",
-            "Output tensor, same shape as input tensor T1.",
-            "T2")
+        .Input(0, "input", "2D input tensor to copy shape, and optionally, type information from.", "T1")
+        .Output(0, "output", "Output tensor, same shape as input tensor T1.", "T2")
         .TypeConstraint(
             "T1",
             {"tensor(float16)",
@@ -337,16 +216,8 @@ ONNX_OPERATOR_SET_SCHEMA(
     1,
     OpSchema()
         .SetDoc(RandomUniform_ver1_doc)
-        .Attr(
-            "low",
-            "Lower boundary of the output values.",
-            AttributeProto::FLOAT,
-            0.0f)
-        .Attr(
-            "high",
-            "Upper boundary of the output values.",
-            AttributeProto::FLOAT,
-            1.0f)
+        .Attr("low", "Lower boundary of the output values.", AttributeProto::FLOAT, 0.0f)
+        .Attr("high", "Upper boundary of the output values.", AttributeProto::FLOAT, 1.0f)
         .Attr(
             "seed",
             "(Optional) Seed to the random generator, if not specified we will auto generate one.",
@@ -358,11 +229,7 @@ ONNX_OPERATOR_SET_SCHEMA(
             AttributeProto::INT,
             static_cast<int64_t>(TensorProto::FLOAT))
         .Attr("shape", "The shape of the output tensor.", AttributeProto::INTS)
-        .Output(
-            0,
-            "output",
-            "Output tensor of random values drawn from uniform distribution",
-            "T")
+        .Output(0, "output", "Output tensor of random values drawn from uniform distribution", "T")
         .TypeConstraint(
             "T",
             {"tensor(float16)", "tensor(float)", "tensor(double)"},
@@ -387,16 +254,8 @@ ONNX_OPERATOR_SET_SCHEMA(
     1,
     OpSchema()
         .SetDoc(RandomNormal_ver1_doc)
-        .Attr(
-            "mean",
-            "The mean of the normal distribution.",
-            AttributeProto::FLOAT,
-            0.0f)
-        .Attr(
-            "scale",
-            "The standard deviation of the normal distribution.",
-            AttributeProto::FLOAT,
-            1.0f)
+        .Attr("mean", "The mean of the normal distribution.", AttributeProto::FLOAT, 0.0f)
+        .Attr("scale", "The standard deviation of the normal distribution.", AttributeProto::FLOAT, 1.0f)
         .Attr(
             "seed",
             "(Optional) Seed to the random generator, if not specified we will auto generate one.",
@@ -408,11 +267,7 @@ ONNX_OPERATOR_SET_SCHEMA(
             AttributeProto::INT,
             static_cast<int64_t>(TensorProto::FLOAT))
         .Attr("shape", "The shape of the output tensor.", AttributeProto::INTS)
-        .Output(
-            0,
-            "output",
-            "Output tensor of random values drawn from normal distribution",
-            "T")
+        .Output(0, "output", "Output tensor of random values drawn from normal distribution", "T")
         .TypeConstraint(
             "T",
             {"tensor(float16)", "tensor(float)", "tensor(double)"},
@@ -437,16 +292,8 @@ ONNX_OPERATOR_SET_SCHEMA(
     1,
     OpSchema()
         .SetDoc(RandomUniformLike_ver1_doc)
-        .Attr(
-            "low",
-            "Lower boundary of the output values.",
-            AttributeProto::FLOAT,
-            0.0f)
-        .Attr(
-            "high",
-            "Upper boundary of the output values.",
-            AttributeProto::FLOAT,
-            1.0f)
+        .Attr("low", "Lower boundary of the output values.", AttributeProto::FLOAT, 0.0f)
+        .Attr("high", "Upper boundary of the output values.", AttributeProto::FLOAT, 1.0f)
         .Attr(
             "seed",
             "(Optional) Seed to the random generator, if not specified we will auto generate one.",
@@ -458,16 +305,8 @@ ONNX_OPERATOR_SET_SCHEMA(
             "the data type of the input tensor.",
             AttributeProto::INT,
             OPTIONAL_VALUE)
-        .Input(
-            0,
-            "input",
-            "Input tensor to copy shape and optionally type information from.",
-            "T1")
-        .Output(
-            0,
-            "output",
-            "Output tensor of random values drawn from uniform distribution",
-            "T2")
+        .Input(0, "input", "Input tensor to copy shape and optionally type information from.", "T1")
+        .Output(0, "output", "Output tensor of random values drawn from uniform distribution", "T2")
         .TypeConstraint(
             "T1",
             OpSchema::all_tensor_types(),
@@ -502,16 +341,8 @@ ONNX_OPERATOR_SET_SCHEMA(
     1,
     OpSchema()
         .SetDoc(RandomNormalLike_ver1_doc)
-        .Attr(
-            "mean",
-            "The mean of the normal distribution.",
-            AttributeProto::FLOAT,
-            0.0f)
-        .Attr(
-            "scale",
-            "The standard deviation of the normal distribution.",
-            AttributeProto::FLOAT,
-            1.0f)
+        .Attr("mean", "The mean of the normal distribution.", AttributeProto::FLOAT, 0.0f)
+        .Attr("scale", "The standard deviation of the normal distribution.", AttributeProto::FLOAT, 1.0f)
         .Attr(
             "seed",
             "(Optional) Seed to the random generator, if not specified we will auto generate one.",
@@ -523,16 +354,8 @@ ONNX_OPERATOR_SET_SCHEMA(
             "the data type of the input tensor.",
             AttributeProto::INT,
             OPTIONAL_VALUE)
-        .Input(
-            0,
-            "input",
-            "Input tensor to copy shape and optionally type information from.",
-            "T1")
-        .Output(
-            0,
-            "output",
-            "Output tensor of random values drawn from normal distribution",
-            "T2")
+        .Input(0, "input", "Input tensor to copy shape and optionally type information from.", "T1")
+        .Output(0, "output", "Output tensor of random values drawn from normal distribution", "T2")
         .TypeConstraint(
             "T1",
             OpSchema::all_tensor_types(),
@@ -562,11 +385,7 @@ ONNX_OPERATOR_SET_SCHEMA(
     7,
     OpSchema()
         .SetDoc(Multinomial_ver7_doc)
-        .Attr(
-            "sample_size",
-            "Number of times to sample.",
-            AttributeProto::INT,
-            static_cast<int64_t>(1))
+        .Attr("sample_size", "Number of times to sample.", AttributeProto::INT, static_cast<int64_t>(1))
         .Attr(
             "seed",
             "(Optional) Seed to the random generator, if not specified we will auto generate one.",
@@ -591,10 +410,7 @@ ONNX_OPERATOR_SET_SCHEMA(
             "T1",
             {"tensor(float16)", "tensor(float)", "tensor(double)"},
             "Constrain input types to float tensors.")
-        .TypeConstraint(
-            "T2",
-            {"tensor(int32)", "tensor(int64)"},
-            "Constrain output types to integral tensors.")
+        .TypeConstraint("T2", {"tensor(int32)", "tensor(int64)"}, "Constrain output types to integral tensors.")
         .TypeAndShapeInferenceFunction([](InferenceContext& ctx) {
           auto dtype = ctx.getAttribute("dtype");
           auto dataType = TensorProto_DataType::TensorProto_DataType_INT32;
@@ -602,8 +418,8 @@ ONNX_OPERATOR_SET_SCHEMA(
             dataType = static_cast<TensorProto_DataType>(dtype->i());
             if (dataType != TensorProto_DataType::TensorProto_DataType_INT32 &&
                 dataType != TensorProto_DataType::TensorProto_DataType_INT64) {
-                  fail_type_inference("Output type must be int32 or int64");
-                }
+              fail_type_inference("Output type must be int32 or int64");
+            }
           }
           updateOutputElemType(ctx, 0, dataType);
 
@@ -623,47 +439,47 @@ static const char* Range_ver11_doc = R"DOC(
 Generate a tensor containing a sequence of numbers that begin at `start` and extends by increments of `delta`
 up to `limit` (exclusive).
 
-The number of elements in the output of range is computed as below-
+The number of elements in the output of range is computed as below:
 
-`number_of_elements = max( ceil( (limit - start) / delta ) , 0 )`
+```
+number_of_elements = max( ceil( (limit - start) / delta ) , 0 )
+```
 
-The pseudocode determining the contents of the output is shown below-
+The pseudocode determining the contents of the output is shown below:
 
-`for(int i=0; i<number_of_elements; ++i)`
+```
+for(int i=0; i<number_of_elements; ++i) {
+  output[i] =  start + (i * delta);
+}
+```
 
-`{`
+Example 1
 
-`    output[i] =  start + (i * delta);  `
-
-`}`
-
-`Example 1`
+```
 Inputs: start = 3, limit = 9, delta = 3
 Output: [3, 6]
+```
 
-`Example 2`
+Example 2
+
+```
 Inputs: start = 10, limit = 4, delta = -2
 Output: [10, 8, 6]
-
+```
 )DOC";
 
 template <typename T>
-inline int64_t compute_output_dim_for_range(
-    const TensorProto* start,
-    const TensorProto* limit,
-    const TensorProto* delta) {
-  if (start->dims().size() != 0 || limit->dims().size() != 0 ||
-      delta->dims().size() != 0) {
-    fail_shape_inference(
-        "Input to 'Range' op should be scalars (Tensor with only one element and shape empty)");
+inline int64_t
+compute_output_dim_for_range(const TensorProto* start, const TensorProto* limit, const TensorProto* delta) {
+  if (start->dims().size() != 0 || limit->dims().size() != 0 || delta->dims().size() != 0) {
+    fail_shape_inference("Input to 'Range' op should be scalars (Tensor with only one element and shape empty)");
   }
 
   const auto& start_data = ParseData<T>(start);
   const auto& limit_data = ParseData<T>(limit);
   const auto& delta_data = ParseData<T>(delta);
 
-  int64_t n = static_cast<int64_t>(
-      ceil((1.0 * (limit_data[0] - start_data[0])) / delta_data[0]));
+  int64_t n = static_cast<int64_t>(ceil((1.0 * (limit_data[0] - start_data[0])) / delta_data[0]));
 
   if (n < 0)
     n = 0;
@@ -676,29 +492,13 @@ ONNX_OPERATOR_SET_SCHEMA(
     11,
     OpSchema()
         .SetDoc(Range_ver11_doc)
-        .Input(
-            0,
-            "start",
-            "Scalar. First entry for the range of output values.",
-            "T")
-        .Input(
-            1,
-            "limit",
-            "Scalar. Exclusive upper limit for the range of output values.",
-            "T")
+        .Input(0, "start", "Scalar. First entry for the range of output values.", "T")
+        .Input(1, "limit", "Scalar. Exclusive upper limit for the range of output values.", "T")
         .Input(2, "delta", "Scalar. Value to step by.", "T")
-        .Output(
-            0,
-            "output",
-            "A 1-D tensor with same type as the inputs containing generated range of values.",
-            "T")
+        .Output(0, "output", "A 1-D tensor with same type as the inputs containing generated range of values.", "T")
         .TypeConstraint(
             "T",
-            {"tensor(float)",
-             "tensor(double)",
-             "tensor(int16)",
-             "tensor(int32)",
-             "tensor(int64)"},
+            {"tensor(float)", "tensor(double)", "tensor(int16)", "tensor(int32)", "tensor(int64)"},
             "Constrain input types to common numeric type tensors.")
         .FunctionBody(R"ONNX(
           {
@@ -728,38 +528,31 @@ ONNX_OPERATOR_SET_SCHEMA(
           const auto* delta_initializer = ctx.getInputData(2);
 
           // Output is always 1-D
-          auto* output_dim = ctx.getOutputType(0)
-                                 ->mutable_tensor_type()
-                                 ->mutable_shape()
-                                 ->add_dim();
+          auto* output_dim = ctx.getOutputType(0)->mutable_tensor_type()->mutable_shape()->add_dim();
 
           // If any of Range's inputs are not initializers, the output dimension
           // value would remain unknown.
-          if (start_initializer != nullptr && limit_initializer != nullptr &&
-              delta_initializer != nullptr) {
+          if (start_initializer != nullptr && limit_initializer != nullptr && delta_initializer != nullptr) {
             // Make sure the input types are homogeneous
-            if ((start_initializer->data_type() !=
-                 limit_initializer->data_type()) ||
-                (start_initializer->data_type() !=
-                 delta_initializer->data_type())) {
-              fail_shape_inference(
-                  "All inputs to 'Range' op must be of the same type");
+            if ((start_initializer->data_type() != limit_initializer->data_type()) ||
+                (start_initializer->data_type() != delta_initializer->data_type())) {
+              fail_shape_inference("All inputs to 'Range' op must be of the same type");
             }
 
             // Explicitly compute the output dimension if Range's inputs are
             // stored in initializer list.
             if (start_initializer->data_type() == TensorProto::FLOAT) {
-              output_dim->set_dim_value(compute_output_dim_for_range<float>(
-                  start_initializer, limit_initializer, delta_initializer));
+              output_dim->set_dim_value(
+                  compute_output_dim_for_range<float>(start_initializer, limit_initializer, delta_initializer));
             } else if (start_initializer->data_type() == TensorProto::INT32) {
-              output_dim->set_dim_value(compute_output_dim_for_range<int32_t>(
-                  start_initializer, limit_initializer, delta_initializer));
+              output_dim->set_dim_value(
+                  compute_output_dim_for_range<int32_t>(start_initializer, limit_initializer, delta_initializer));
             } else if (start_initializer->data_type() == TensorProto::INT64) {
-              output_dim->set_dim_value(compute_output_dim_for_range<int64_t>(
-                  start_initializer, limit_initializer, delta_initializer));
+              output_dim->set_dim_value(
+                  compute_output_dim_for_range<int64_t>(start_initializer, limit_initializer, delta_initializer));
             } else if (start_initializer->data_type() == TensorProto::DOUBLE) {
-              output_dim->set_dim_value(compute_output_dim_for_range<double>(
-                  start_initializer, limit_initializer, delta_initializer));
+              output_dim->set_dim_value(
+                  compute_output_dim_for_range<double>(start_initializer, limit_initializer, delta_initializer));
             } else {
               // 'float16' has no native CPU type -
               // stop with rank inference, no action here
@@ -794,37 +587,27 @@ ONNX_OPERATOR_SET_SCHEMA(
             "the data type of the input tensor.",
             AttributeProto::INT,
             OPTIONAL_VALUE)
-        .Input(
-            0,
-            "input",
-            "All values in input have to be in the range:[0, 1].",
-            "T1")
-        .Output(
-            0,
-            "output",
-            "The returned output tensor only has values 0 or 1, same shape as input tensor.",
-            "T2")
+        .Input(0, "input", "All values in input have to be in the range:[0, 1].", "T1")
+        .Output(0, "output", "The returned output tensor only has values 0 or 1, same shape as input tensor.", "T2")
         .TypeConstraint(
             "T1",
-            {"tensor(float16)",
-              "tensor(float)",
-              "tensor(double)"},
-              "Constrain input types to float tensors.")
+            {"tensor(float16)", "tensor(float)", "tensor(double)"},
+            "Constrain input types to float tensors.")
         .TypeConstraint(
             "T2",
             {"tensor(float16)",
-              "tensor(float)",
-              "tensor(double)",
-              "tensor(bfloat16)",
-              "tensor(uint8)",
-              "tensor(uint16)",
-              "tensor(uint32)",
-              "tensor(uint64)",
-              "tensor(int8)",
-              "tensor(int16)",
-              "tensor(int32)",
-              "tensor(int64)",
-              "tensor(bool)"},
+             "tensor(float)",
+             "tensor(double)",
+             "tensor(bfloat16)",
+             "tensor(uint8)",
+             "tensor(uint16)",
+             "tensor(uint32)",
+             "tensor(uint64)",
+             "tensor(int8)",
+             "tensor(int16)",
+             "tensor(int32)",
+             "tensor(int64)",
+             "tensor(bool)"},
             "Constrain output types to all numeric tensors and bool tensors.")
         .TypeAndShapeInferenceFunction([](ONNX_NAMESPACE::InferenceContext& ctx) {
           if (ctx.getAttribute("dtype") != nullptr)
@@ -837,22 +620,23 @@ ONNX_OPERATOR_SET_SCHEMA(
           propagateShapeFromInputToOutput(ctx, 0, 0);
         })
         .SetContextDependentFunctionBodyBuilder(
-            [](const FunctionBodyBuildContext& ctx,
-               const OpSchema& schema,
-               FunctionProto& functionProto) -> bool {
+            [](const FunctionBodyBuildContext& ctx, const OpSchema& schema, FunctionProto& functionProto) -> bool {
               if (ctx.getInputType(0) == nullptr) {
                 // we cannot create a correct function body without knowing the input type
                 return false;
               }
               auto input_type = ctx.getInputType(0)->tensor_type().elem_type();
               auto dtype = ctx.getAttribute("dtype") != nullptr
-                             ? static_cast<TensorProto_DataType>(ctx.getAttribute("dtype")->i())
-                             : input_type;
+                  ? static_cast<TensorProto_DataType>(ctx.getAttribute("dtype")->i())
+                  : input_type;
               FunctionBuilder builder(functionProto);
               builder
-                .Add("X_random = RandomUniformLike <low = 0.0, high = 1.0, seed = @seed> (input)", "dtype", int64_t(input_type))
-                .Add("X_greater = Greater (X_random, input)")
-                .Add("output = Cast (X_greater)", "to", int64_t(dtype));
+                  .Add(
+                      "X_random = RandomUniformLike <low = 0.0, high = 1.0, seed = @seed> (input)",
+                      "dtype",
+                      int64_t(input_type))
+                  .Add("X_greater = Greater (X_random, input)")
+                  .Add("output = Cast (X_greater)", "to", int64_t(dtype));
               schema.BuildFunction(functionProto);
               return true;
             }));

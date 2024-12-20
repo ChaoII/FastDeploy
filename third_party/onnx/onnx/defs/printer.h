@@ -5,10 +5,10 @@
 #pragma once
 
 #include <iostream>
-
-#include "onnx/onnx_pb.h"
+#include <string>
 
 #include "onnx/defs/parser.h"
+#include "onnx/onnx_pb.h"
 
 namespace ONNX_NAMESPACE {
 
@@ -37,5 +37,14 @@ std::ostream& operator<<(std::ostream& os, const NodeList& nodelist);
 std::ostream& operator<<(std::ostream& os, const GraphProto& graph);
 
 std::ostream& operator<<(std::ostream& os, const FunctionProto& fn);
+
+std::ostream& operator<<(std::ostream& os, const ModelProto& model);
+
+template <typename ProtoType>
+std::string ProtoToString(const ProtoType& proto) {
+  std::stringstream ss;
+  ss << proto;
+  return ss.str();
+}
 
 } // namespace ONNX_NAMESPACE

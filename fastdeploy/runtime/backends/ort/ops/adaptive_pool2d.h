@@ -23,62 +23,34 @@
 
 #ifndef NON_64_PLATFORM
 #include "onnxruntime_cxx_api.h"  // NOLINT
+#include "onnxruntime_lite_custom_op.h"
 
 #ifdef WITH_GPU
 #include "fastdeploy/runtime/backends/common/cuda/adaptive_pool2d_kernel.h"
 #endif
 
 namespace fastdeploy {
-struct AdaptivePool2dKernel {
- protected:
+
+struct AdaptivePool2d {
+  AdaptivePool2d(const OrtApi* ort_api, const OrtKernelInfo* info) {
+    std::cout << "enter AdaptivePool2d" << std::endl;
+    char* pooling_type = nullptr;
+    size_t str_length = 0;
+    ort_api->KernelInfoGetAttribute_string(info, "pooling_type", pooling_type,
+                                           &str_length);
+    int64_t* output_size = nullptr;
+    size_t output_size_len = 0;
+    pooling_type_ = std::string(pooling_type, str_length);
+    ort_api->KernelInfoGetAttributeArray_int64(info, "output_size", output_size,
+                                               &output_size_len);
+    output_size_.assign(output_size, output_size + output_size_len);
+  }
+
   std::string pooling_type_ = "avg";
   std::vector<int64_t> output_size_ = {};
-  OrtApi ort_;
-  void* compute_stream_;
-  const char* provider_;
 
- public:
-  AdaptivePool2dKernel(OrtApi ort, const OrtKernelInfo* info,
-                       const char* provider)
-      : ort_(ort) {
-    GetAttribute(info);
-    provider_ = provider;
-  }
-
-  void GetAttribute(const OrtKernelInfo* info);
-
-  void Compute(OrtKernelContext* context);
-
-  void CpuAdaptivePool(const std::vector<int64_t>& input_size,
-                       const std::vector<int64_t>& output_size,
-                       const float* input_data, float* output_data);
-};
-
-struct AdaptivePool2dOp
-    : Ort::CustomOpBase<AdaptivePool2dOp, AdaptivePool2dKernel> {
-  explicit AdaptivePool2dOp(const char* provider) : provider_(provider) {}
-  void* CreateKernel(OrtApi api, const OrtKernelInfo* info) const {
-    return new AdaptivePool2dKernel(api, info, provider_);
-  }
-
-  const char* GetName() const { return "AdaptivePool2d"; }
-
-  size_t GetInputTypeCount() const { return 1; }
-
-  ONNXTensorElementDataType GetInputType(size_t index) const {
-    return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT;
-  }
-
-  size_t GetOutputTypeCount() const { return 1; }
-
-  ONNXTensorElementDataType GetOutputType(size_t index) const {
-    return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT;
-  }
-
-  const char* GetExecutionProviderType() const { return provider_; }
-
- private:
-  const char* provider_;
+  void Compute(const Ort::Custom::Tensor<float>& input_data,
+               Ort::Custom::Tensor<float>& output_data);
 };
 
 }  // namespace fastdeploy
